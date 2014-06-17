@@ -1022,17 +1022,27 @@ Petal::Tiny:  6 wallclock secs ( 6.57 usr +  0.04 sys =  6.61 CPU) @ 151.29/s (n
 
 None.
 
-
 =head1 BUGS
 
-If you find any, please drop me an email. Patches are always welcome.
+If you find any, please drop me an email or pull request on github. Patches are always welcome.
 
+=head1 SOURCE AVAILABILITY
+
+This source is on Github:
+
+    https://github.com/lbalker/petal-tiny
+
+=head1 AUTHOR
+
+Current maintainer 1.05+: Lars Balker lars@balker.dk
+
+Original author: Jean-Michel Hiver - jhiver (at) gmail (dot) com
 
 =head1 SEE ALSO
 
 L<Petal>, L<Template::TAL>
 
-Jean-Michel Hiver - jhiver (at) gmail (dot) com
+=head1 LICENSE
 
 This module free software and is distributed under the same license as Perl
 itself. Use it at your own risk.
