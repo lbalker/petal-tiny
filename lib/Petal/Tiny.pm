@@ -1,4 +1,5 @@
 package Petal::Tiny;
+
 use warnings;
 use strict;
 use Carp;
@@ -47,7 +48,6 @@ our $VARIABLE_RE_BRACKETS = qq |(?<!\$)\\{.*?(?<!\\\\)\\}|;
 our $STRING_TOKEN_RE      = "($VARIABLE_RE_SIMPLE|$VARIABLE_RE_BRACKETS)";
 
 our $TAL = 'petal';
-our $VERSION = 1.04;
 
 our $STOP_RECURSE = 0;
 
