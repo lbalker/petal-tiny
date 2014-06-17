@@ -317,35 +317,60 @@ sub resolve {
       return $expr;
     };
     $expr =~ s/\r/ /g;
-    $expr =~ s/\r/ /g;
     my ($what, @args) = split /\s+/, $expr;
     defined $what or return;
     
     my (@path)   = split /\//, $what;
     my @resolved = ();
     my $obj      = $context;
+    @args        = map { resolve ($_, $context) } @args;
     while (@path) {
         my $attribute_or_method = shift @path;
         push @resolved, $attribute_or_method;
         my $resolved = join '/', @resolved;
 	$obj or confess "cannot fetch $what, because $resolved is undefined";
         ref $obj or confess "cannot fetch $what, because $resolved is not a reference";
-        ref $obj eq 'ARRAY' and do {
-            not @path and @args and confess "cannot resolve expression $expr";
+
+        if (ref $obj eq 'ARRAY') {
             $obj = $obj->[$attribute_or_method];
-            next;
-        };
-        ref $obj eq 'HASH' and do {
-            not @path and @args and confess "cannot resolve expression $expr";
-            $obj = $obj->{$attribute_or_method};            
-            next;
-        };
-        $obj->can ($attribute_or_method) and do {
-            if   (@path) { $obj = $obj->$attribute_or_method() }
-            else         { $obj = $obj->$attribute_or_method( map { resolve ($_, $context) } @args) }
-            next;
-        };
-        $obj = $obj->{$attribute_or_method};
+        }
+        elsif (ref $obj eq 'HASH') {
+            $obj = $obj->{$attribute_or_method};
+        }
+        elsif ($obj->can ($attribute_or_method)) {
+            if (@path) {
+                $obj = $obj->$attribute_or_method();
+            }
+            else {
+                $obj = $obj->$attribute_or_method(@args);
+                @args = ();
+            }
+        }
+
+        # now, check if what we found was a code-ref
+        if (ref $obj eq 'CODE') {
+            if (@path) {
+                $obj = $obj->();
+            }
+            else {
+                $obj = $obj->(@args);
+                @args = ();
+            }
+        }
+
+        # if we're done with @path and there's a single arg, use it to look up in array/hash
+        if (not @path and @args == 1) {
+            if (ref $obj eq 'ARRAY') {
+                $obj = $obj->[ $args[0] ];
+                last;
+            }
+            elsif (ref $obj eq 'HASH') {
+                $obj = $obj->{ $args[0] };
+                last;
+            }
+        }
+
+        not @path and @args and confess "cannot resolve expression $expr";
     }
     return $obj;
 }
@@ -743,6 +768,16 @@ Example
   -->
   <span tal:replace="some_hash/a_key">Hello, World</span>
 
+Petal expression
+
+  some_hash a_variable
+
+Example
+
+  <!--? Replaces Hello, World with the contents
+        of $hashref->{'some_hash'}->{'a_key'}
+  -->
+  <span tal:define="a_variable --a_key" tal:replace="some_hash a_variable">Hello, World</span>
 
 Perl expression
 
@@ -759,6 +794,17 @@ Example
   -->
   <span tal:replace="some_array/12">Hello, World</span>
 
+Petal expression
+
+  some_array a_variable
+
+Example
+
+  <!--? Replaces Hello, World with the contents
+        of $hashref->{'some_array'}->[12]
+  -->
+  <span tal:define="a_variable 12" tal:replace="some_array a_variable">Hello, World</span>
+
 Note: You're more likely to want to loop through arrays:
 
   <!--? Loops trough the array and displays each values -->
@@ -767,6 +813,41 @@ Note: You're more likely to want to loop through arrays:
         tal:content="value">Hello, World</li>
   </ul>
 
+If you want to loop through a hash, supply both the hash, as well as its relevant keys in $hashref, e.g.:
+
+  some_keys => [ "foo", "bar" ],
+  some_hash => {
+    foo => "fooval",
+    bar => "barval",
+  }
+
+  <input type="text" tal:repeat="a_key some_keys" tal:attributes="name a_key; value some_hash a_key" />
+
+which will generate the HTML
+
+  <input type="text" name="foo" value="fooval" />
+  <input type="text" name="bar" value="barval" />
+
+=head2 calling anonymous functions
+
+If $hashref->{'some_function'} = sub { ... }.
+
+Perl expressions
+
+  1. $hashref->{'some_function'}->();
+  2. $hashref->{'some_function'}->('foo', 'bar');
+  3. $hashref->{'some_function'}->($hashref->{'some_variable'});
+
+L<Petal::Tiny expressions>
+
+  1. some_object/some_function
+  2. some_object/some_function --foo --bar
+  3. some_object/some_function some_variable
+
+TRAP: If the last item in the path is a function or method which
+returns a function, it is the path-member who gets the argument-list;
+there's no way to predict the future and giving the argument-list to
+the function.
 
 =head2 accessing object methods
 
@@ -774,7 +855,7 @@ Perl expressions
 
   1. $hashref->{'some_object'}->some_method();
   2. $hashref->{'some_object'}->some_method ('foo', 'bar');
-  3. $hashref->{'some_object'}->some_method ($hashref->{'some_variable'})  
+  3. $hashref->{'some_object'}->some_method ($hashref->{'some_variable'});
 
 L<Petal::Tiny expressions>
 
@@ -798,11 +879,12 @@ Perl expression
   $hashref->{'some_object'}
           ->some_method()
           ->{'key2'}
+          ->{'some_function'}->()
           ->some_other_method ( 'foo', $hash->{bar} );
 
 Petal expression
 
-  some_object/some_method/key2/some_other_method --foo bar
+  some_object/some_method/key2/some_function/some_other_method --foo bar
 
 
 =head2 true:EXPRESSION

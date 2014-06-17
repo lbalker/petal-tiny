@@ -6,19 +6,27 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use lib ('../lib', './lib');
-use Test::More tests => 5;
+use Test::More tests => 8;
 BEGIN { use_ok('Petal::Tiny') };
 
 my $data = join '', <DATA>;
 my $output = Petal::Tiny::makeitso($data, {
     foo  => 'bar',
     list => [ qw /one two three four/ ],
+    keys => [ qw /foo/ ],
+    hash => { foo => "fooval", bar => "barval" },
+    nums => [ 1, 0 ],
+    array => [ qw/ val0 val1 val2 / ],
 } );
 
 like ($output, qr/one/, 'one');
 like ($output, qr/two/, 'two');
 like ($output, qr/three/, 'three');
 like ($output, qr/four/, 'four');
+like ($output, qr/>fooval</, 'fooval');
+unlike ($output, qr/barval/, 'barval');
+like ($output, qr/val1.*?val0/s, 'val1 followed by val0');
+
 Test::More::done_testing();
 
 __DATA__
@@ -34,4 +42,6 @@ __DATA__
     <p>repeat/end: <span tal:replace="repeat/end">end</span></p>
     <p>repeat/inner: <span tal:replace="repeat/inner">inner</span></p>
   </xml>
+  <xml tal:repeat="key keys" tal:content="hash key"/>
+  <xml tal:repeat="num nums" tal:content="array num"/>
 </XML>

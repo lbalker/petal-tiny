@@ -6,7 +6,7 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use lib ('../lib', './lib');
-use Test::More tests => 22;
+use Test::More tests => 23;
 BEGIN { use_ok('Petal::Tiny') };
 use warnings;
 use strict;
@@ -18,6 +18,7 @@ sub baz  { "world" }
 sub add  { shift(); shift() + shift() }
 sub up   { shift; uc (shift()) }
 sub self { shift }
+sub hash { { up => sub { uc (shift()) } } }
 
 package main;
 
@@ -48,3 +49,4 @@ is (Petal::Tiny::resolve_expression ("object/self/baz", $context), "world");
 is (Petal::Tiny::resolve_expression ("object/self/self/baz", $context), "world");
 is (Petal::Tiny::resolve_expression ("object/self/self/self/add --3 --2", $context), 5);
 is (Petal::Tiny::resolve_expression ("object/self/self/self/up --hello", $context), 'HELLO');
+is (Petal::Tiny::resolve_expression ("object/hash/up --again", $context), 'AGAIN');
