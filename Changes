@@ -1,0 +1,17 @@
+Revision history for Perl extension Petal::Tiny
+
+1.04	Fri Dec 28 17:26:49 MUT 2012
+	- fixed it so that tal:content result is no longer interpolated
+
+1.03	Fri May  4 12:04:00 MUT 2012
+	- moved $VERSION from Makefile to module $VERSION
+
+1.02	Mon Apr 23 23:06:19 MUT 2012
+	- updated a bit of documentation
+
+1.01	Sun Apr 22 01:13:01 MUT 2012
+	- fixed tal:on-error bug
+
+1.00	Sat Apr 21 23:11:28 MUT 2012
+	- original release
+
