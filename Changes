@@ -1,7 +1,7 @@
 Revision history for Perl extension Petal::Tiny
 
 1.05	Tue Jun 17 13:26:49 CEST 2014
-	- added dynamic hash/array lookups and anonymous functions to resolve
+        - added dynamic hash/array lookups and anonymous functions to resolve
         - changed distribution to Dist::Zilla
 
 1.04	Fri Dec 28 17:26:49 MUT 2012
