@@ -269,8 +269,19 @@ sub tal_attributes {
     for my $att (split /;(?!;)/, $attributes) {
         $att = trim ($att);
         my ($symbol, $expression) = split /\s+/, $att, 2;
-        $node->{$symbol} = resolve_expression ($expression, $context);
-        delete $node->{$symbol} unless (defined $node->{$symbol});
+        my $add = ($symbol =~ s/^\+//);
+        my $new = resolve_expression ($expression, $context);
+        if (defined $new) {
+            if ($add) {
+                my $old = $node->{$symbol};
+                $old = "" unless defined $old;
+                $new = $old . $new;
+            }
+            $node->{$symbol} = $new;
+        }
+        else {
+            delete $node->{$symbol} unless $add;
+        }
     }
     return tal_omit_tag ($node, $xml, $end, $context);
 }
@@ -686,8 +697,10 @@ it's considered XML data. Otherwise it's treated as a file name.
 
 =head1 TAL syntax
 
-Go read L<http://www.zope.org/Wikis/DevSite/Projects/ZPT/TAL>. L<Petal::Tiny>
-tries to comply with the TAL spec a lot more than L<Petal> did.
+Go read L<https://github.com/zopefoundation/zpt-docs>
+(http://www.zope.org/Wikis/DevSite/Projects/ZPT/TAL> is
+dead). L<Petal::Tiny> tries to comply with the TAL spec a lot more
+than L<Petal> did.
 
 Currently it implements all operations, i.e. define, condition, repeat,
 content, replace, attributes, omit-tag and even on-error (which allows for much
@@ -966,7 +979,23 @@ Note that this is a language I<keyword>, not a modifier. It does not use a
 trailing colon.
 
 
-=head2 Petal::Hash caching and fresh keyword 
+=head2 '+' in attributes
+
+tal:attributes always overrides the contents of an attribute, but
+occasionally you want to concatenate the new string to the existing
+string. Prefixing the attribute name with '+' allows you do to this:
+
+ <div class="foo " tal:attribute="+class bar"/>
+
+outputs
+
+ <div class="foo bar"/>
+
+With +, if the expression returns undef the exisiting attribute is
+left unchanged. Without +, it's still deleted.
+
+
+=head2 Petal::Hash caching and fresh keyword
 
 UNSUPPORTED. L<Petal::Tiny> does no caching.
 
@@ -1009,12 +1038,11 @@ The cycle of a L<Petal::Tiny> template is the following:
 Benchmarking a simple piece of basic XML shows that Petal is much faster when
 running its caches, but much slower otherwise:
 
-
-Benchmark: timing 1000 iterations of Petal (disk cache), Petal (memory cache), Petal (no cache), Petal::Tiny...
-Petal (disk cache):  3 wallclock secs ( 2.50 usr +  0.10 sys =  2.60 CPU) @ 384.62/s (n=1000)
-Petal (memory cache):  2 wallclock secs ( 1.76 usr +  0.05 sys =  1.81 CPU) @ 552.49/s (n=1000)
-Petal (no cache): 18 wallclock secs (17.85 usr +  0.09 sys = 17.94 CPU) @ 55.74/s (n=1000)
-Petal::Tiny:  6 wallclock secs ( 6.57 usr +  0.04 sys =  6.61 CPU) @ 151.29/s (n=1000)
+ Benchmark: timing 1000 iterations of Petal (disk cache), Petal (memory cache), Petal (no cache), Petal::Tiny...
+ Petal (disk cache):  3 wallclock secs ( 2.50 usr +  0.10 sys =  2.60 CPU) @ 384.62/s (n=1000)
+ Petal (memory cache):  2 wallclock secs ( 1.76 usr +  0.05 sys =  1.81 CPU) @ 552.49/s (n=1000)
+ Petal (no cache): 18 wallclock secs (17.85 usr +  0.09 sys = 17.94 CPU) @ 55.74/s (n=1000)
+ Petal::Tiny:  6 wallclock secs ( 6.57 usr +  0.04 sys =  6.61 CPU) @ 151.29/s (n=1000)
 
 
 
