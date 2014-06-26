@@ -723,6 +723,23 @@ set the petal namespace in your HTML or XML document as follows:
 
     <html xmlns:tal="http://purl.org/petal/1.0/">
 
+=head2 Modifications to TAL
+
+=head3 '+' in attributes
+
+tal:attributes always overrides the content of an attribute, but
+occasionally you want to concatenate the new string to the existing
+string. Prefixing the attribute name with '+' allows you do to this:
+
+ <div class="foo " tal:attribute="+class bar"/>
+
+outputs
+
+ <div class="foo bar"/>
+
+With +, if the expression returns undef the exisiting attribute is
+left unchanged. Without +, it's still deleted.
+
 
 =head1 METAL macros
 
@@ -979,22 +996,6 @@ Note that this is a language I<keyword>, not a modifier. It does not use a
 trailing colon.
 
 
-=head2 '+' in attributes
-
-tal:attributes always overrides the contents of an attribute, but
-occasionally you want to concatenate the new string to the existing
-string. Prefixing the attribute name with '+' allows you do to this:
-
- <div class="foo " tal:attribute="+class bar"/>
-
-outputs
-
- <div class="foo bar"/>
-
-With +, if the expression returns undef the exisiting attribute is
-left unchanged. Without +, it's still deleted.
-
-
 =head2 Petal::Hash caching and fresh keyword
 
 UNSUPPORTED. L<Petal::Tiny> does no caching.
@@ -1068,7 +1069,7 @@ Original author: Jean-Michel Hiver - jhiver (at) gmail (dot) com
 
 =head1 SEE ALSO
 
-L<Petal>, L<Template::TAL>
+L<Petal>, L<Template::TAL>, L<Mojolicious::Plugin::PetalTinyRenderer>
 
 =head1 LICENSE
 
