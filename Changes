@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.05      2014-06-26 14:27:55+02:00 Europe/Copenhagen
         - added dynamic hash/array lookups and anonymous functions to resolve
         - added + feature to tal:attributes to append to existing attributes
         - changed distribution to Dist::Zilla
