@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.07      2014-07-31 16:04:13+02:00 Europe/Copenhagen
         - refactored expression internals to pass around $self, to
           make it possible to subclass Petal::Tiny.
         - added reftype method, to make it easier to add support for
