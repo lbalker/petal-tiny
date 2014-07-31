@@ -10,7 +10,7 @@ use Test::More tests => 8;
 BEGIN { use_ok('Petal::Tiny') };
 
 my $data = join '', <DATA>;
-my $output = Petal::Tiny::makeitso($data, {
+my $output = Petal::Tiny->makeitso($data, {
     foo  => 'bar',
     list => [ qw /one two three four/ ],
     keys => [ qw /foo/ ],

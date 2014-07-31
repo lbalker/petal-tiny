@@ -11,7 +11,7 @@ BEGIN { use_ok('Petal::Tiny') };
 
 
 my $data = join '', <DATA>;
-my $output = Petal::Tiny::makeitso($data, {
+my $output = Petal::Tiny->makeitso($data, {
     foo     => 'bar',
     content => 'CONTENT',
     dquote  => '"',
