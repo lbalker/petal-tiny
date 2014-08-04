@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.08      2014-08-04 13:28:23+02:00 Europe/Copenhagen
         - never try to xmlencode references!
           (Actual issue for Mojolicious::Plugin::PetalTinyRenderer,
           since Mojo::Collection stringifies, so if a Mojo::Collection
