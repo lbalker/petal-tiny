@@ -526,7 +526,7 @@ sub extract_attributes {
 
 sub xmlencode {
     my $string = shift;
-    $string or return $string;
+    return $string if !$string or ref $string;
     $string =~ s/&/&amp;/g;
     $string =~ s/</&lt;/g;
     $string =~ s/>/&gt;/g;
