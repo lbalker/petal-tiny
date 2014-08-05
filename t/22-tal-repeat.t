@@ -6,7 +6,7 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use lib ('../lib', './lib');
-use Test::More tests => 8;
+use Test::More tests => 10;
 BEGIN { use_ok('Petal::Tiny') };
 
 my $data = join '', <DATA>;
@@ -26,6 +26,8 @@ like ($output, qr/four/, 'four');
 like ($output, qr/>fooval</, 'fooval');
 unlike ($output, qr/barval/, 'barval');
 like ($output, qr/val1.*?val0/s, 'val1 followed by val0');
+like ($output, qr/singleval/, 'singleval');
+unlike ($output, qr/singleval.*?singleval/s, 'ONE singleval');
 
 Test::More::done_testing();
 
@@ -42,6 +44,7 @@ __DATA__
     <p>repeat/end: <span tal:replace="repeat/end">end</span></p>
     <p>repeat/inner: <span tal:replace="repeat/inner">inner</span></p>
   </xml>
+  <p tal:repeat="a --singleval">repeat/single: <span tal:replace="a">single</span></p>
   <xml tal:repeat="key keys" tal:content="hash key"/>
   <xml tal:repeat="num nums" tal:content="array num"/>
 </XML>

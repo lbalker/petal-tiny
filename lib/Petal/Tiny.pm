@@ -218,6 +218,7 @@ sub tal_repeat {
     my $repeat = trim ($stuff);
     my ($symbol, $expression) = split /\s+/, $repeat, 2;
     my $array  = $self->resolve_expression($expression, $context);
+    $array = [ $array ] unless ref $array; # we don't judge
     my $count  = 0;
     my @result = ();
     foreach my $item (@{$array}) {

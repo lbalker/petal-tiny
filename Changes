@@ -1,6 +1,7 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+        - allow tal:repeat to loop over a single element
 
 1.08      2014-08-04 13:28:23+02:00 Europe/Copenhagen
         - never try to xmlencode references!
