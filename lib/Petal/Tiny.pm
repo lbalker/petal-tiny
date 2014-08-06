@@ -215,25 +215,39 @@ sub tal_repeat {
     my $stuff   = delete $node->{"$TAL:repeat"};
     defined $stuff or return $self->tal_content($node, $xml, $end, $context);
     
+    my @loops = split /;/, $stuff;
+    my $count = 0;
+    return $self->_do_repeat(\$count, 1, \@loops, $node, $xml, $end, { %$context });
+}
+
+sub _do_repeat {
+    my ($self, $count, $last, $loops_ref, $node, $xml, $end, $context) = @_;
+
+    my @loops = @$loops_ref;
+    my $stuff = shift @loops;
     my $repeat = trim ($stuff);
     my ($symbol, $expression) = split /\s+/, $repeat, 2;
     my $array  = $self->resolve_expression($expression, $context);
     $array = [ $array ] unless ref $array; # we don't judge
-    my $count  = 0;
-    my @result = ();
-    foreach my $item (@{$array}) {
-        $count++;
-        my $newContext = { %{$context} };
-        $newContext->{repeat} = {};
-        $newContext->{repeat}->{index}  = $count;
-        $newContext->{repeat}->{number} = $count;
-        $newContext->{repeat}->{even}   = $count%2 ? 0 : 1;
-        $newContext->{repeat}->{odd}    = $count%2 ? 1 : 0;
-        $newContext->{repeat}->{start}  = $count == 1 ? 1 : 0;
-        $newContext->{repeat}->{end}    = $count == @{$array} ? 1 : 0;
-        $newContext->{repeat}->{inner}  = do { ($count > 1 and $count < @{$array}) ? 1 : 0 };
-        $newContext->{$symbol} = $item;
-        push @result, $self->tal_content({%{$node}}, $xml, $end, $newContext);
+    my @result;
+    foreach my $idx (0 .. $#$array) {
+        my $item = $array->[$idx];
+        $context->{$symbol} = $item;
+        if (@loops) {
+            push @result, $self->_do_repeat($count, $last && $idx == $#$array, \@loops, $node, $xml, $end, $context);
+        }
+        else {
+            $$count++;
+            $context->{repeat} = {};
+            $context->{repeat}->{index}  = $$count;
+            $context->{repeat}->{number} = $$count;
+            $context->{repeat}->{even}   = $$count%2 ? 0 : 1;
+            $context->{repeat}->{odd}    = $$count%2 ? 1 : 0;
+            $context->{repeat}->{start}  = $$count == 1 ? 1 : 0;
+            $context->{repeat}->{end}    = $last && $idx == $#$array ? 1 : 0;
+            $context->{repeat}->{inner}  = $context->{repeat}->{start} || $context->{repeat}->{end} ? 0 : 1;
+            push @result, $self->tal_content({ %$node }, $xml, $end, $context);
+        }
     }
     return join '', @result;
 }
@@ -743,6 +757,21 @@ outputs
 With +, if the expression returns undef the exisiting attribute is
 left unchanged. Without +, it's still deleted.
 
+=head3 Nested loops in repeat
+
+tal:repeat understands semicolon-separated loop-variables to nest loops within same tag, e.g.:
+
+  some_keys => [ "foo", "bar" ],
+  some_hash => {
+    foo => [ "fooval1", "fooval2" ],
+    bar => "barval",
+  }
+
+  <span tal:repeat="key some_keys; val some_hash key" tal:replace="structure string:${key}=${val}&"/>
+
+will evaluate to
+
+  foo=fooval1&foo=fooval2&bar=barval&
 
 =head1 METAL macros
 
