@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.10      2014-10-03 15:28:31+02:00 Europe/Copenhagen
         - fix '${}' to match documentation. Now '${' will eat everything
           up to the '}', allowing
                 string:The current CGI 'action' param is: ${cgi/param --action}
