@@ -110,8 +110,11 @@ sub makeitso {
         };
         tag_close ($elem) and confess "cannot find opening tag for $elem";
 
-        $elem =~ s/(?<!\$)\$\{?([a-z0-9-\/\:\_]+)\}?/$self->resolve_expression($1,$context)/egi;
-        $elem =~ s/\$\$/\$/g;
+        if ($elem =~ /\$/) {
+            $elem =~ s/(?<!\$)\$\{([^{}]+)\}/$self->resolve_expression($1,$context)/egi;
+            $elem =~ s/(?<!\$)\$\{?([a-z0-9-\/\:\_]+)\}?/$self->resolve_expression($1,$context)/egi;
+            $elem =~ s/\$\$/\$/g;
+        }
         push @head, $elem;
     }
     my @res = ();
