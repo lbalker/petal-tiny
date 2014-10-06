@@ -110,11 +110,7 @@ sub makeitso {
         };
         tag_close ($elem) and confess "cannot find opening tag for $elem";
 
-        if ($elem =~ /\$/) {
-            $elem =~ s/(?<!\$)\$\{([^{}]+)\}/$self->resolve_expression($1,$context)/egi;
-            $elem =~ s/(?<!\$)\$\{?([a-z0-9-\/\:\_]+)\}?/$self->resolve_expression($1,$context)/egi;
-            $elem =~ s/\$\$/\$/g;
-        }
+        $elem = $self->_interpolate_dollar($context, $elem, 'resolve_expression');
         push @head, $elem;
     }
     my @res = ();
@@ -122,6 +118,17 @@ sub makeitso {
     push @res, $self->makeitso_block(\@body, $context) if (@body);
     push @res, $self->makeitso(\@tail, $context)       if (@tail);
     return join '', @res;
+}
+
+
+sub _interpolate_dollar {
+    my ($self, $context, $string, $method) = @_;
+    if ($string =~ /\$/) {
+        $string =~ s/(?<!\$) \$\{  ( [^{}]+           ) \}  / $self->$method($1, $context) /xegi;
+        $string =~ s/(?<!\$) \$\{? ( [a-z0-9-\/\:\_]+ ) \}? / $self->$method($1, $context) /xegi;
+        $string =~ s/\$\$/\$/g;
+    }
+    return $string;
 }
 
 
@@ -437,7 +444,7 @@ sub modifier_string {
     my $self    = shift;
     my $string  = shift;
     my $context = shift;
-    $string     =~ s/(?<!\$)\$\{?([a-z0-9-\/\:\_]+)\}?/$self->resolve($1,$context)/egi;
+    $string = $self->_interpolate_dollar($context, $string, 'resolve');
     return $string;
 }
 
