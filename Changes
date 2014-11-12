@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.13      2014-11-12 14:35:53+01:00 Europe/Copenhagen
         - fixed old bug in tal_condition relating to anding ;-seperated values
 1.12      2014-11-12 12:11:45+01:00 Europe/Copenhagen
         - dollar interpolation now warns the expression when you try to interpolate undef
