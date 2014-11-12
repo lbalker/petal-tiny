@@ -6,7 +6,7 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
 use lib ('../lib', './lib');
-use Test::More; # tests => 8;
+use Test::More;
 BEGIN { use_ok('Petal::Tiny') };
 
 
@@ -20,6 +20,10 @@ unlike ($output, qr/INVISIBLE/, 'invisible');
 like ($output, qr/should be visible/, 'empty quotes');
 unlike ($output, qr/strange/, 'crazyness');
 
+like ($output, qr/>and works</, 'and');
+unlike ($output, qr/>false and works 1</, 'not and');
+like ($output, qr/>false and works 2</, 'not not and');
+
 Test::More::done_testing();
 
 __DATA__
@@ -28,4 +32,7 @@ __DATA__
   <xml tal:condition="true:nothing">INVISIBLE</xml>
   <xml tal:condition="">I guess since omit-tag="" should remove the tag, that means that "" must be true, thus this should be visible as well</xml>
   <xml tal:condition="??">strange stuff</xml>
+  <xml tal:condition="true:--1;true:--2">and works</xml>
+  <xml tal:condition="true:--1;true:undefined">false and works 1</xml>
+  <xml tal:condition="true:--1;false:undefined">false and works 2</xml>
 </XML>
