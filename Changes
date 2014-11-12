@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.12      2014-11-12 12:11:45+01:00 Europe/Copenhagen
         - dollar interpolation now warns the expression when you try to interpolate undef
 1.11      2014-10-06 13:49:57+02:00 Europe/Copenhagen
         - make string: use the same $-interpolation as the one for the xml.
