@@ -89,26 +89,27 @@ sub makeitso {
     my @tail    = ();
     while (@xml) {
         my $elem = shift @xml;
-        tag_self_close ($elem) and do {
+        is_tag_self_close ($elem) and do {
             push @body, $elem;
             @tail = @xml;
             last;
         };
-        my $opentag = tag_open ($elem);
-        $opentag and do {
+        is_tag_open ($elem) and do {
             push @body, $elem;
             my $balance = 1;
             while ($balance) {
                 @xml or confess "cannot find closing tag for $elem";
                 my $elem = shift @xml;
-                tag_open  ($elem) and $balance++;
-                tag_close ($elem) and $balance--;
+                is_tag_open  ($elem) and $balance++;
+                is_tag_close ($elem) and $balance--;
                 push @body, $elem;
             }
             @tail = @xml;
             last;
         };
-        tag_close ($elem) and confess "cannot find opening tag for $elem";
+        is_tag_close ($elem) and do {
+            confess "cannot find opening tag for $elem";
+        };
 
         $elem = $self->_interpolate_dollar($context, $elem, 'resolve_expression');
         push @head, $elem;
@@ -488,17 +489,22 @@ sub has_instructions {
     return grep /^$TAL:/, keys %{$node};
 }
 
+sub is_tag_open {
+    my $elem = shift;
+    not defined $elem and confess ('undefined elem');
+    return (
+        $elem =~ /^</   and
+        $elem !~ /^<\!/ and
+        $elem !~ /^<\// and
+        $elem !~ /\/>$/ and
+        $elem !~ /^<\?/
+    );
+}
 
 sub tag_open {
     my $elem = shift;
     my $node = undef;
-    not defined $elem and confess ('undefined elem');
-
-    $elem !~ /^<\!/ and
-    $elem !~ /^<\// and
-    $elem !~ /\/>$/ and
-    $elem !~ /^<\?/ and
-    $elem =~ /^</   and do {
+    is_tag_open($elem) and do {
 	my %node      = extract_attributes ($elem);
 	($node{_tag}) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
 	$node{_open}  = 1;
@@ -508,30 +514,28 @@ sub tag_open {
     return $node;
 }
 
-
-sub tag_close {
+sub is_tag_close {
     my $elem = shift;
-    my $node = undef;
-    $elem !~ /^<\!/ and
-    $elem =~ /^<\// and
-    $elem !~ /\/>$/ and do {
-        my %node      = ();
-	($node{_tag}) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
-	$node{_open}  = 0;
-	$node{_close} = 1;
-	$node = \%node;
-    };
-    return $node;
+    return (
+        $elem =~ /^<\// and
+        $elem !~ /\/>$/
+    );
 }
 
+sub is_tag_self_close {
+    my $elem = shift;
+    return (
+        $elem =~ /^</   and
+        $elem !~ /^<\!/ and
+        $elem !~ /^<\// and
+        $elem =~ /\/>$/
+    );
+}
 
 sub tag_self_close {
     my $elem = shift;
     my $node = undef;
-    $elem !~ /^<\!/ and
-    $elem !~ /^<\// and
-    $elem =~ /\/>$/ and
-    $elem =~ /^</   and do {
+    is_tag_self_close($elem) and do {
 	my %node      = extract_attributes ($elem);
         ($node{_tag}) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
 	$node{_open}  = 1;
