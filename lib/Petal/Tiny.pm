@@ -4,51 +4,50 @@ use warnings;
 use strict;
 use Carp;
 
-# REX/Perl 1.0 
+# REX/Perl 1.0
 # Robert D. Cameron "REX: XML Shallow Parsing with Regular Expressions",
-# Technical Report TR 1998-17, School of Computing Science, Simon Fraser 
+# Technical Report TR 1998-17, School of Computing Science, Simon Fraser
 # University, November, 1998.
 # Copyright (c) 1998, Robert D. Cameron.
 # The following code may be freely used and distributed provided that
 # this copyright and citation notice remains intact and that modifications
 # or additions are clearly identified.
-our $TextSE = "[^<]+";
-our $UntilHyphen = "[^-]*-";
-our $Until2Hyphens = "$UntilHyphen(?:[^-]$UntilHyphen)*-";
-our $CommentCE = "$Until2Hyphens>?";
-our $UntilRSBs = "[^\\]]*](?:[^\\]]+])*]+";
-our $CDATA_CE = "$UntilRSBs(?:[^\\]>]$UntilRSBs)*>";
-our $S = "[ \\n\\t\\r]+";
-our $NameStrt = "[A-Za-z_:]|[^\\x00-\\x7F]";
-our $NameChar = "[A-Za-z0-9_:.-]|[^\\x00-\\x7F]";
-our $Name = "(?:$NameStrt)(?:$NameChar)*";
-our $QuoteSE = "\"[^\"]*\"|'[^']*'";
-our $DT_IdentSE = "$S$Name(?:$S(?:$Name|$QuoteSE))*";
-our $MarkupDeclCE = "(?:[^\\]\"'><]+|$QuoteSE)*>";
-our $S1 = "[\\n\\r\\t ]";
-our $UntilQMs = "[^?]*\\?+";
-our $PI_Tail = "\\?>|$S1$UntilQMs(?:[^>?]$UntilQMs)*>";
-our $DT_ItemSE = "<(?:!(?:--$Until2Hyphens>|[^-]$MarkupDeclCE)|\\?$Name(?:$PI_Tail))|%$Name;|$S";
-our $DocTypeCE = "$DT_IdentSE(?:$S)?(?:\\[(?:$DT_ItemSE)*](?:$S)?)?>?";
-our $DeclCE = "--(?:$CommentCE)?|\\[CDATA\\[(?:$CDATA_CE)?|DOCTYPE(?:$DocTypeCE)?";
-our $PI_CE = "$Name(?:$PI_Tail)?";
-our $EndTagCE = "$Name(?:$S)?>?";
-our $AttValSE = "\"[^<\"]*\"|'[^<']*'";
-our $ElemTagCE = "$Name(?:$S$Name(?:$S)?=(?:$S)?(?:$AttValSE))*(?:$S)?/?>?";
-our $ElemTagCE_Mod = "$S($Name)(?:$S)?=(?:$S)?($AttValSE)";
-our $MarkupSPE = "<(?:!(?:$DeclCE)?|\\?(?:$PI_CE)?|/(?:$EndTagCE)?|(?:$ElemTagCE)?)";
-our $XML_SPE = "$TextSE|$MarkupSPE";
+my $TextSE = "[^<]+";
+my $UntilHyphen = "[^-]*-";
+my $Until2Hyphens = "$UntilHyphen(?:[^-]$UntilHyphen)*-";
+my $CommentCE = "$Until2Hyphens>?";
+my $UntilRSBs = "[^\\]]*](?:[^\\]]+])*]+";
+my $CDATA_CE = "$UntilRSBs(?:[^\\]>]$UntilRSBs)*>";
+my $S = "[ \\n\\t\\r]+";
+my $NameStrt = "[A-Za-z_:]|[^\\x00-\\x7F]";
+my $NameChar = "[A-Za-z0-9_:.-]|[^\\x00-\\x7F]";
+my $Name = "(?:$NameStrt)(?:$NameChar)*";
+my $QuoteSE = "\"[^\"]*\"|'[^']*'";
+my $DT_IdentSE = "$S$Name(?:$S(?:$Name|$QuoteSE))*";
+my $MarkupDeclCE = "(?:[^\\]\"'><]+|$QuoteSE)*>";
+my $S1 = "[\\n\\r\\t ]";
+my $UntilQMs = "[^?]*\\?+";
+my $PI_Tail = "\\?>|$S1$UntilQMs(?:[^>?]$UntilQMs)*>";
+my $DT_ItemSE = "<(?:!(?:--$Until2Hyphens>|[^-]$MarkupDeclCE)|\\?$Name(?:$PI_Tail))|%$Name;|$S";
+my $DocTypeCE = "$DT_IdentSE(?:$S)?(?:\\[(?:$DT_ItemSE)*](?:$S)?)?>?";
+my $DeclCE = "--(?:$CommentCE)?|\\[CDATA\\[(?:$CDATA_CE)?|DOCTYPE(?:$DocTypeCE)?";
+my $PI_CE = "$Name(?:$PI_Tail)?";
+my $EndTagCE = "$Name(?:$S)?>?";
+my $AttValSE = "\"[^<\"]*\"|'[^<']*'";
+my $ElemTagCE = "$Name(?:$S$Name(?:$S)?=(?:$S)?(?:$AttValSE))*(?:$S)?/?>?";
+my $ElemTagCE_Mod = "$S($Name)(?:$S)?=(?:$S)?($AttValSE)";
+my $MarkupSPE = "<(?:!(?:$DeclCE)?|\\?(?:$PI_CE)?|/(?:$EndTagCE)?|(?:$ElemTagCE)?)";
+my $XML_SPE = "$TextSE|$MarkupSPE";
 # REX END - thank you Robert for this 26 line XML parser - awesome ...
 
 
-our $RE_1 = qr /$ElemTagCE/;
-our $RE_2 = qr /$ElemTagCE_Mod/;
-our $VARIABLE_RE_SIMPLE   = qq |\$[A-Za-z_][A-Za-z0-9_\.:\/]+|;
-our $VARIABLE_RE_BRACKETS = qq |(?<!\$)\\{.*?(?<!\\\\)\\}|;
-our $STRING_TOKEN_RE      = "($VARIABLE_RE_SIMPLE|$VARIABLE_RE_BRACKETS)";
+my $RE_1 = qr /$ElemTagCE/;
+my $RE_2 = qr /$ElemTagCE_Mod/;
+my $VARIABLE_RE_SIMPLE   = qq |\$[A-Za-z_][A-Za-z0-9_\.:\/]+|;
+my $VARIABLE_RE_BRACKETS = qq |(?<!\$)\\{.*?(?<!\\\\)\\}|;
+my $STRING_TOKEN_RE      = "($VARIABLE_RE_SIMPLE|$VARIABLE_RE_BRACKETS)";
 
 our $TAL = 'petal';
-
 our $STOP_RECURSE = 0;
 
 
@@ -57,7 +56,7 @@ sub new {
     $class    = ref $class || $class;
     my $thing = shift;
     my $self  = bless {}, $class;
-    if    (defined $thing and $thing =~ /(\<|\n|\>)/) { $self->{xmldata} = $thing }
+    if    (defined $thing and $thing =~ /(\<|\n|\>)/) { $self->{xmldata} = $thing; }
     elsif (defined $thing) {
         $self->{xmldata} = do {
             open my $xmldatafile, "<", $thing or die "cannot read open $thing";
@@ -82,45 +81,50 @@ sub process {
 sub makeitso {
     my $self    = shift;
     my $xml     = shift;
-    my @xml     = ref $xml ? @{$xml} : ( $xml =~ /$XML_SPE/g );
     my $context = shift || {};
-    my @head    = ();
-    my @body    = ();
-    my @tail    = ();
-    while (@xml) {
-        my $elem = shift @xml;
-        is_tag_self_close ($elem) and do {
-            push @body, $elem;
-            @tail = @xml;
+    my (@nodes, @head, @body, @tail);
+
+    if (ref $xml) {
+        @nodes = @$xml;
+    }
+    else {
+        @nodes = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+    }
+
+    while (@nodes) {
+        my $node = shift @nodes;
+        is_node_self_close ($node) and do {
+            push @body, $node;
+            @tail = @nodes;
             last;
         };
-        is_tag_open ($elem) and do {
-            push @body, $elem;
+        is_node_open ($node) and do {
+            push @body, $node;
             my $balance = 1;
             while ($balance) {
-                @xml or confess "cannot find closing tag for $elem";
-                my $elem = shift @xml;
-                is_tag_open  ($elem) and $balance++;
-                is_tag_close ($elem) and $balance--;
-                push @body, $elem;
+                @nodes or confess "cannot find closing tag for " . $node->{_elem};
+                my $subnode = shift @nodes;
+                is_node_open  ($subnode) and $balance++;
+                is_node_close ($subnode) and $balance--;
+                push @body, $subnode;
             }
-            @tail = @xml;
+            @tail = @nodes;
             last;
         };
-        is_tag_close ($elem) and do {
-            confess "cannot find opening tag for $elem";
+        is_node_close ($node) and do {
+            confess "cannot find opening tag for " . $node->{_elem};
         };
 
-        $elem = $self->_interpolate_dollar($context, $elem, 'resolve_expression');
-        push @head, $elem;
+        $node->{_elem} = $self->_interpolate_dollar($context, $node->{_elem}, 'resolve_expression');
+        push @head, $node;
     }
-    my @res = ();
-    push @res, @head                                   if (@head);
-    push @res, $self->makeitso_block(\@body, $context) if (@body);
-    push @res, $self->makeitso(\@tail, $context)       if (@tail);
-    return join '', @res;
-}
+    my @res;
+    push @res, @head                                   if @head;
+    push @res, $self->makeitso_block(\@body, $context) if @body;
+    push @res, $self->makeitso(\@tail, $context)       if @tail;
 
+    return join "", map { node2tag($_) } @res;
+}
 
 sub _interpolate_dollar {
     my ($self, $context, $string, $method) = @_;
@@ -150,6 +154,7 @@ sub namespace {
         my $v = $node->{$k};
         if ($v eq 'http://purl.org/petal/1.0/') {
             delete $node->{$k};
+            $node->{_change} = 1;
             $k =~ s/^xmlns\://;
             return $k;
         }
@@ -162,52 +167,50 @@ sub makeitso_block {
     my $self    = shift;
     my $xml     = shift;
     my $context = shift;
-    my @xml     = ref $xml ? @{$xml} : ( $xml =~ /$XML_SPE/g );
-    my $tag     = shift (@xml);
-    my $gat     = pop (@xml);
-    my $node    = tag_open ($tag) || tag_self_close ($tag);
+    my @xml     = @$xml;
+    my $node    = shift @xml;
+    my $edon    = pop @xml;
     my $ns      = $self->namespace($node);
     local $TAL  = $ns || $TAL;
     if (has_instructions ($node)) {
         $context = { %{$context} };
-        return $self->tal_on_error($node, \@xml, $gat, $context);
+        $node->{_change} = 1;
+        return $self->tal_on_error($node, \@xml, $edon, $context);
     }
     else {
-        $tag = node2tag ($node) if ($ns);
-        if ($gat) { return $tag . $self->makeitso(\@xml, $context) . $gat }
-        else      { return $tag                                           } # self-closing tag
+        if ($edon) { return ($node, $self->makeitso(\@xml, $context), $edon); }
+        else       { return $node;                                            } # self-closing tag
     }
 }
 
 
 sub tal_on_error {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:on-error"};
+    my $stuff = delete $node->{"$TAL:on-error"};
     defined $stuff or return $self->tal_define($node, $xml, $end, $context);
-    my $nodeCopy = { %{$node} };
-    my $res = eval { $self->tal_define($node, $xml, $end, $context) };
+    my $nodeCopy = { %$node };
+    my @res = eval { $self->tal_define($node, $xml, $end, $context) };
     if ($@) {
         my @result = ();
         for my $k (keys %{$nodeCopy}) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
-        delete $nodeCopy->{_close} and $end = "</$nodeCopy->{_tag}>"; # deal with self closing tags
-        push @result, node2tag ($nodeCopy);
+        delete $nodeCopy->{_close} and $end = "</$nodeCopy->{_tag}>"; # deal with self closing tags XXX
+        push @result, $nodeCopy;
         push @result, $self->resolve_expression($stuff, $context);
         push @result, $end;
-        return join '', @result;
+        return @result;
     }
     else {
-        return $res;
+        return @res;
     }
 }
 
 
 sub tal_define {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:define"};
-    defined $stuff || return $self->tal_condition($node, $xml, $end, $context);
-    my $newContext = { %{$context} };
-    my $define  = trim ($stuff);
-    for my $def (split /;(?!;)/, $define) {
+    my $stuff = delete $node->{"$TAL:define"};
+    defined $stuff or return $self->tal_condition($node, $xml, $end, $context);
+    my $newContext = { %$context };
+    for my $def (split /;(?!;)/, $stuff) {
         $def = trim($def);
         my ($symbol, $expression) = split /\s+/, $def, 2;
         $newContext->{$symbol} = $self->resolve_expression($expression, $newContext);
@@ -218,11 +221,10 @@ sub tal_define {
 
 sub tal_condition {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:condition"};
+    my $stuff = delete $node->{"$TAL:condition"};
     defined $stuff or return $self->tal_repeat($node, $xml, $end, $context);
 
-    my $condition = trim ($stuff);
-    for my $cond (split /;(?!;)/, $condition) {
+    for my $cond (split /;(?!;)/, $stuff) {
         $cond = trim($cond);
         $self->resolve_expression($cond, $context) or return '';
     }
@@ -232,17 +234,16 @@ sub tal_condition {
 
 sub tal_repeat {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:repeat"};
+    my $stuff = delete $node->{"$TAL:repeat"};
     defined $stuff or return $self->tal_content($node, $xml, $end, $context);
-    
-    my @loops = split /;/, $stuff;
+
+    my @loops = split /;(?!;)/, $stuff;
     my $count = 0;
     return $self->_do_repeat(\$count, 1, \@loops, $node, $xml, $end, { %$context });
 }
 
 sub _do_repeat {
     my ($self, $count, $last, $loops_ref, $node, $xml, $end, $context) = @_;
-
     my @loops = @$loops_ref;
     my $stuff = shift @loops;
     my $repeat = trim ($stuff);
@@ -266,32 +267,37 @@ sub _do_repeat {
             $context->{repeat}->{start}  = $$count == 1 ? 1 : 0;
             $context->{repeat}->{end}    = $last && $idx == $#$array ? 1 : 0;
             $context->{repeat}->{inner}  = $context->{repeat}->{start} || $context->{repeat}->{end} ? 0 : 1;
-            push @result, $self->tal_content({ %$node }, $xml, $end, $context);
+
+            my $node_clone = { %$node };
+            my $xml_clone  = [ map { { %$_ } } @$xml ]; # XXX deep copy
+            my @res = $self->tal_content($node_clone, $xml_clone, $end, $context);
+
+            push @result, @res;
         }
     }
-    return join '', @result;
+    return @result;
 }
 
 
 sub tal_content {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:content"};
+    my $stuff = delete $node->{"$TAL:content"};
     defined $stuff or return $self->tal_replace($node, $xml, $end, $context);
-    
+
     my $res = $self->resolve_expression($stuff, $context);
     $xml    = defined $res ? [ $res ] : [];
     delete $node->{_close} and $end = "</$node->{_tag}>"; # deal with self closing tags
-    
+
     # set the stop recurse flag so that if content contains $foo and $bar,
     # those aren't interpolated as variables.
-    local ( $STOP_RECURSE ) = ( 1 );
+    local $STOP_RECURSE = 1;
     return $self->tal_replace($node, $xml, $end, $context);
 }
 
 
 sub tal_replace {
     my ($self, $node, $xml, $end, $context) = @_;
-    my $stuff   = delete $node->{"$TAL:replace"};
+    my $stuff = delete $node->{"$TAL:replace"};
     defined $stuff or return $self->tal_attributes($node, $xml, $end, $context);
     my $res = $self->resolve_expression($stuff, $context);
     return defined $res ? $res : '';
@@ -302,9 +308,8 @@ sub tal_attributes {
     my ($self, $node, $xml, $end, $context) = @_;
     my $stuff = delete $node->{"$TAL:attributes"};
     defined $stuff or return $self->tal_omit_tag($node, $xml, $end, $context);
-   
-    my $attributes  = trim ($stuff);
-    for my $att (split /;(?!;)/, $attributes) {
+
+    for my $att (split /;(?!;)/, $stuff) {
         $att = trim ($att);
         my ($symbol, $expression) = split /\s+/, $att, 2;
         my $add = ($symbol =~ s/^\+//);
@@ -331,12 +336,12 @@ sub tal_omit_tag {
     my $omit   = defined $stuff ? do { $stuff eq '' ? 1 : $self->resolve_expression($stuff, $context) } : undef;
     $omit and not $end and return ''; # omit-tag on a self-closing tag means *poof*, nothing left
     my @result = ();
-    push @result, node2tag ($node) unless ($omit);
+    push @result, $node unless $omit;
     if ($end) {
-        push @result, do { $STOP_RECURSE ? join '', @{$xml} : $self->makeitso($xml, $context) };
-        push @result, $end unless ($omit);
+        push @result, $STOP_RECURSE ? @$xml : $self->makeitso($xml, $context);
+        push @result, $end unless $omit;
     }
-    return join '', @result;
+    return @result;
 }
 
 
@@ -346,7 +351,7 @@ sub resolve_expression {
     my $context = shift || confess "resolve_expression() : no context";
     $expr =~ s/\;\;/;/g;
     $expr =~ s/\$\$/\$/g;
-    $expr eq 'nothing' and return undef;    
+    $expr eq 'nothing' and return undef;
     $expr =~ s/^fresh\s+//;
     my $structure = ($expr =~ s/^structure\s+//);
     my $resolved = $self->resolve($expr, $context);
@@ -372,10 +377,9 @@ sub resolve {
       $expr =~ s/^--//;
       return $expr;
     };
-    $expr =~ s/\r/ /g;
     my ($what, @args) = split /\s+/, $expr;
     defined $what or return;
-    
+
     my (@path)   = split /\//, $what;
     my @resolved = ();
     my $obj      = $context;
@@ -437,9 +441,9 @@ sub resolve {
 
 
 sub modifier_true {
-    my $self = shift;
-    my $arg  = $self->resolve(shift(), shift());
-    ref $arg and $self->reftype($arg) eq 'ARRAY' and return @{$arg};
+    my ($self, $expr, $context) = @_;
+    my $arg  = $self->resolve($expr, $context);
+    ref $arg and $self->reftype($arg) eq 'ARRAY' and return scalar @$arg;
     return $arg ? 1 : 0;
 }
 
@@ -461,15 +465,25 @@ sub modifier_string {
 
 sub node2tag {
     my $node  = shift;
-    my $tag   = delete $node->{_tag};
-    for (keys %{$node}) { /^($TAL:)/ and delete $node->{$_} }
-    my $open  = delete $node->{_open}  || 0;
-    my $close = delete $node->{_close} || 0;
-    my $att   = join ' ', map { qq|$_="$node->{$_}"| } keys %{$node};
-    $open  and $close and return $att ? "<$tag $att />" : "<$tag />";
-    $close and return "</$tag>";
-    $open  and return $att ? "<$tag $att>" : "<$tag>";
-    die "There is probably a bug somewhere. A tag that's not and open tag and not a close tag?";
+
+    return $node unless ref $node eq 'HASH'; # handle textnodes introduced in various tal_ methods
+
+    my $tag    = delete $node->{_tag};
+    my $open   = delete $node->{_open};
+    my $close  = delete $node->{_close};
+    my $change = delete $node->{_change};
+
+    if ($change) {
+        my %keys = map { $_ => $_ } keys %$node;
+        delete $keys{_elem};
+        delete $keys{_kids};
+
+        my $att = join ' ', map { qq|$_="$node->{$_}"| } keys %keys;
+        $open  and $close and return $att ? "<$tag $att />" : "<$tag />";
+                   $close and return "</$tag>";
+        $open             and return $att ? "<$tag $att>" : "<$tag>";
+    }
+    return $node->{_elem};
 }
 
 
@@ -489,9 +503,34 @@ sub has_instructions {
     return grep /^$TAL:/, keys %{$node};
 }
 
+sub tag2node {
+    my $elem = shift;
+
+    my $is_open       = is_tag_open($elem);
+    my $is_close      = is_tag_close($elem);
+    my $is_self_close = is_tag_self_close($elem);
+
+    if ($is_open || $is_self_close || $is_close) {
+        my %node  = extract_attributes ($elem);
+	my ($tag) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
+	return {
+            %node,
+            _tag   => $tag,
+            _open  => $is_open  || $is_self_close,
+            _close => $is_close || $is_self_close,
+            _elem  => $elem,
+            _kids  => [],
+        };
+    }
+
+    return {
+        _elem => $elem,
+        _kids => [],
+    };
+}
+
 sub is_tag_open {
     my $elem = shift;
-    not defined $elem and confess ('undefined elem');
     return (
         $elem =~ /^</   and
         $elem !~ /^<\!/ and
@@ -499,19 +538,6 @@ sub is_tag_open {
         $elem !~ /\/>$/ and
         $elem !~ /^<\?/
     );
-}
-
-sub tag_open {
-    my $elem = shift;
-    my $node = undef;
-    is_tag_open($elem) and do {
-	my %node      = extract_attributes ($elem);
-	($node{_tag}) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
-	$node{_open}  = 1;
-	$node{_close} = 0;
-	$node = \%node;
-    };
-    return $node;
 }
 
 sub is_tag_close {
@@ -532,17 +558,19 @@ sub is_tag_self_close {
     );
 }
 
-sub tag_self_close {
-    my $elem = shift;
-    my $node = undef;
-    is_tag_self_close($elem) and do {
-	my %node      = extract_attributes ($elem);
-        ($node{_tag}) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
-	$node{_open}  = 1;
-	$node{_close} = 1;
-	$node = \%node;
-    };
-    return $node;
+sub is_node_open {
+    my $node = shift;
+    return $node->{_open};
+}
+
+sub is_node_close {
+    my $node = shift;
+    return $node->{_close};
+}
+
+sub is_node_self_close {
+    my $node = shift;
+    return $node->{_open} && $node->{_close};
 }
 
 
@@ -550,14 +578,13 @@ sub extract_attributes {
     my $tag = shift;
     my ($tags) = $tag =~ /$RE_1/g;
     my %attr = $tag =~ /$RE_2/g;
-    foreach my $key (keys %attr)
-    {
+    foreach my $key (keys %attr) {
         my $val = $attr{$key};
         $val    =~ s/^(\"|\')//;
         $val    =~ s/(\"|\')$//;
         $attr{$key} = $val;
     }
-    
+
     %attr;
 }
 
@@ -754,7 +781,7 @@ things such as:
     <p>Checkout amount: <span petal:content="self/basket/total">TOTAL</span> USD</p>
 
 You can still write:
-    
+
     <!-- BAM! Petal way. Much easier, especially for quick prototyping. -->
     <p>Checkout amount: $self/basket/total USD</p>
 
@@ -815,7 +842,7 @@ In the following examples, we'll assume that the template is used as follows:
   print $template->process ( $hashref );
 
 Then we will show how the Petal Expression Syntax maps to the Perl way of
-accessing these values.  
+accessing these values.
 
 
 =head2 accessing scalar values
@@ -1009,7 +1036,7 @@ and returns the value.
 Alternatively, you could write:
 
   string:Welcome ${user/real_name}, it is ${date}!
-  
+
 The advantage of using curly brackets is that it lets you interpolate
 expressions which invoke methods with parameters, i.e.
 
