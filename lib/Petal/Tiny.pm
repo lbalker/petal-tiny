@@ -89,6 +89,24 @@ sub makeitso {
     }
     else {
         @nodes = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+
+        my $top = { _kids => [] };
+        my @nest = ( $top );
+        for my $node (@nodes) {
+            if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
+                push @{ $nest[-1]{_kids} }, $node;
+            }
+            if (not $node->{_close} and $node->{_open}) { # pure opens might have children
+                push @nest, $node;
+            }
+            elsif ($node->{_close} and not $node->{_open}) { # pure close eats the last open
+                my $open = pop @nest;
+                confess "unbalanced close-tag '</$node->{_tag}>'"                  if $open == $top;
+                confess "wrong close-tag '</$node->{_tag}>' for '<$open->{_tag}>'" if lc($node->{_tag}) ne lc($open->{_tag});
+            }
+        }
+        confess "Unbalanced tree, more open than close nodes" if @nest > 1;
+        #@nodes = @{ $top->{_kids} };
     }
 
     while (@nodes) {

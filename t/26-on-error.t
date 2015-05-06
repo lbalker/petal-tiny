@@ -27,6 +27,6 @@ like ($output, qr/\<fail\>ouch...\<\/fail\>/, 'ouchy');
 __DATA__
 <XML xmlns:tal="http://purl.org/petal/1.0/">
   <fail tal:on-error="string:ouch...">
-    <othertag tal:content="i/is/fail">success!</tal>
+    <othertag tal:content="i/is/fail">success!</othertag>
   </fail>
 </XML>
