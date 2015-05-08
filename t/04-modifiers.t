@@ -9,7 +9,6 @@ use lib ('../lib', './lib');
 use Test::More; # tests => 8;
 BEGIN { use_ok('Petal::Tiny') };
 
-
 ok (Petal::Tiny->modifier_true('stuff', { stuff => 'i am true stuff' } ), 'true' );
 ok (Petal::Tiny->modifier_false('nostuff', { stuff => 'i am true stuff' } ), 'false' );
 my $string = Petal::Tiny->modifier_string ("here is some true stuff : \${stuff}", { stuff => 'i am true stuff' } );

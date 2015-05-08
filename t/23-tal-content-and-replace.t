@@ -11,11 +11,12 @@ BEGIN { use_ok('Petal::Tiny') };
 
 
 my $data = join '', <DATA>;
-my $output = Petal::Tiny->makeitso($data, {
+my $petal  = Petal::Tiny->new($data);
+my $output = $petal->process(
     foo  => 'bar',
     content => 'CONTENT',
     list => [ qw /foo bar baz buz/ ],
-} );
+);
 
 like ($output, qr/\<xml\>bar\<\/xml\>/, 'some content');
 like ($output, qr/\<xml\>\<\/xml\>/, 'empty content');

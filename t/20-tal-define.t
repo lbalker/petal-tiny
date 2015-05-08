@@ -9,12 +9,12 @@ use lib ('../lib', './lib');
 use Test::More;
 BEGIN { use_ok('Petal::Tiny') };
 
-
 my $data = join '', <DATA>;
-my $output = Petal::Tiny->makeitso($data, {
+my $petal  = Petal::Tiny->new($data);
+my $output = $petal->process(
     foo  => 'bar',
     list => [ qw /foo bar baz buz/ ],
-} );
+);
 
 like ($output, qr/\>one\</, 'one');
 like ($output, qr/\>two\</, 'two');

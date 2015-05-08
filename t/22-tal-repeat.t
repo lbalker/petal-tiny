@@ -10,7 +10,8 @@ use Test::More tests => 12;
 BEGIN { use_ok('Petal::Tiny') };
 
 my $data = join '', <DATA>;
-my $output = Petal::Tiny->makeitso($data, {
+my $petal  = Petal::Tiny->new($data);
+my $output = $petal->process(
     foo  => 'bar',
     list => [ qw /one two three four/ ],
     keys => [ qw /foo/ ],
@@ -19,7 +20,7 @@ my $output = Petal::Tiny->makeitso($data, {
     array => [ qw/ val0 val1 val2 / ],
     deepkeys => [ qw/ deep1 deep2 deep3 / ],
     deephash => { deep1 => [ qw/deepval11/ ], deep2 => [ qw/deepval21 deepval22/ ], deep3 => [ qw/deepval31 deepval32 deepval33/ ] },
-} );
+);
 
 like ($output, qr/one/, 'one');
 like ($output, qr/two/, 'two');

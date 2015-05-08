@@ -56,14 +56,13 @@ sub new {
     $class    = ref $class || $class;
     my $thing = shift;
     my $self  = bless {}, $class;
-    if    (defined $thing and $thing =~ /(\<|\n|\>)/) { $self->{xmldata} = $thing; }
+    if (defined $thing and $thing =~ /(\<|\n|\>)/) {
+        $self->{xmldata} = $thing;
+    }
     elsif (defined $thing) {
-        $self->{xmldata} = do {
-            open my $xmldatafile, "<", $thing or die "cannot read open $thing";
-            my $xmldata = join '', <$xmldatafile>;
-            close $xmldatafile;
-            $xmldata;
-        };
+        open my $xmldatafile, "<", $thing or die "cannot read open $thing";
+        $self->{xmldata} = join '', <$xmldatafile>;
+        close $xmldatafile;
     }
     return $self;
 }
@@ -74,72 +73,50 @@ sub process {
     my $context = { @_ };
     my $data    = $self->{xmldata};
     defined $data or return; # empty data, empty result.
-    return $self->makeitso($data, $context); # earl grey. hot.
+    return $self->makeitso($self->xml2nodes($data), $context); # earl grey. hot.
 }
 
+sub xml2nodes {
+    my ($self, $xml) = @_;
+
+    my @flat = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+
+    my $top = { _kids => [] };
+    my @nest = ( $top );
+    for my $node (@flat) {
+        if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
+            push @{ $nest[-1]{_kids} }, $node;
+        }
+        if (not $node->{_close} and $node->{_open}) { # pure opens might have children
+            push @nest, $node;
+        }
+        elsif ($node->{_close} and not $node->{_open}) { # pure close eats the last open
+            my $open = pop @nest;
+            confess "unbalanced close-tag '</$node->{_tag}>'"                  if $open == $top;
+            confess "wrong close-tag '</$node->{_tag}>' for '<$open->{_tag}>'" if lc($node->{_tag}) ne lc($open->{_tag});
+        }
+    }
+    confess "Unbalanced tree, more open than close nodes" if @nest > 1;
+
+    my @nodes = @{ $top->{_kids} };
+
+    return \@nodes;
+}
 
 sub makeitso {
-    my $self    = shift;
-    my $xml     = shift;
-    my $context = shift || {};
-    my (@nodes, @head, @body, @tail);
+    my ($self, $nodes, $context) = @_;
 
-    if (ref $xml) {
-        @nodes = @$xml;
-    }
-    else {
-        @nodes = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+    return "" unless @$nodes;
 
-        my $top = { _kids => [] };
-        my @nest = ( $top );
-        for my $node (@nodes) {
-            if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
-                push @{ $nest[-1]{_kids} }, $node;
-            }
-            if (not $node->{_close} and $node->{_open}) { # pure opens might have children
-                push @nest, $node;
-            }
-            elsif ($node->{_close} and not $node->{_open}) { # pure close eats the last open
-                my $open = pop @nest;
-                confess "unbalanced close-tag '</$node->{_tag}>'"                  if $open == $top;
-                confess "wrong close-tag '</$node->{_tag}>' for '<$open->{_tag}>'" if lc($node->{_tag}) ne lc($open->{_tag});
-            }
-        }
-        confess "Unbalanced tree, more open than close nodes" if @nest > 1;
-        #@nodes = @{ $top->{_kids} };
-    }
-
-    while (@nodes) {
-        my $node = shift @nodes;
-        is_node_self_close ($node) and do {
-            push @body, $node;
-            @tail = @nodes;
-            last;
-        };
-        is_node_open ($node) and do {
-            push @body, $node;
-            my $balance = 1;
-            while ($balance) {
-                @nodes or confess "cannot find closing tag for " . $node->{_elem};
-                my $subnode = shift @nodes;
-                is_node_open  ($subnode) and $balance++;
-                is_node_close ($subnode) and $balance--;
-                push @body, $subnode;
-            }
-            @tail = @nodes;
-            last;
-        };
-        is_node_close ($node) and do {
-            confess "cannot find opening tag for " . $node->{_elem};
-        };
-
-        $node->{_elem} = $self->_interpolate_dollar($context, $node->{_elem}, 'resolve_expression');
-        push @head, $node;
-    }
     my @res;
-    push @res, @head                                   if @head;
-    push @res, $self->makeitso_block(\@body, $context) if @body;
-    push @res, $self->makeitso(\@tail, $context)       if @tail;
+    for my $node (@$nodes) {
+        if ($node->{_open}) {
+            push @res, $self->makeitso_node($node, $context);
+        }
+        else {
+            push @res, $self->_interpolate_dollar($context, $node->{_elem}, 'resolve_expression');
+        }
+    }
 
     return join "", map { node2tag($_) } @res;
 }
@@ -163,14 +140,23 @@ sub _interpolate_dollar {
     return $string;
 }
 
+sub _deep_copy {
+    my $node = shift;
+    my %copy = %$node;
+    my @kids;
+    for my $kid (@{ $node->{_kids} }) {
+        push @kids, _deep_copy($kid);
+    }
+    $copy{_kids} = \@kids;
+    return \%copy;
+}
 
 sub namespace {
     my $self = shift;
     my $node = shift;
-    for my $k (keys %{$node}) {
+    for my $k (keys %$node) {
         $k =~ /^xmlns\:/ or next;
-        my $v = $node->{$k};
-        if ($v eq 'http://purl.org/petal/1.0/') {
+        if ($node->{$k} eq 'http://purl.org/petal/1.0/') {
             delete $node->{$k};
             $node->{_change} = 1;
             $k =~ s/^xmlns\://;
@@ -181,41 +167,34 @@ sub namespace {
 }
 
 
-sub makeitso_block {
+sub makeitso_node {
     my $self    = shift;
-    my $xml     = shift;
+    my $node    = shift;
     my $context = shift;
-    my @xml     = @$xml;
-    my $node    = shift @xml;
-    my $edon    = pop @xml;
     my $ns      = $self->namespace($node);
     local $TAL  = $ns || $TAL;
-    if (has_instructions ($node)) {
-        $context = { %{$context} };
+    if (has_instructions($node)) {
         $node->{_change} = 1;
-        return $self->tal_on_error($node, \@xml, $edon, $context);
+        return $self->tal_on_error($node, { %$context });
     }
     else {
-        if ($edon) { return ($node, $self->makeitso(\@xml, $context), $edon); }
-        else       { return $node;                                            } # self-closing tag
+        $node->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
+        return $node;
     }
 }
 
 
 sub tal_on_error {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:on-error"};
-    defined $stuff or return $self->tal_define($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_define($node, $context);
     my $nodeCopy = { %$node };
-    my @res = eval { $self->tal_define($node, $xml, $end, $context) };
+    my @res = eval { $self->tal_define($node, $context) };
     if ($@) {
-        my @result = ();
-        for my $k (keys %{$nodeCopy}) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
-        delete $nodeCopy->{_close} and $end = "</$nodeCopy->{_tag}>"; # deal with self closing tags XXX
-        push @result, $nodeCopy;
-        push @result, $self->resolve_expression($stuff, $context);
-        push @result, $end;
-        return @result;
+        for my $k (keys %$nodeCopy) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
+        delete $nodeCopy->{_close};
+        $nodeCopy->{_kids} = [ $self->resolve_expression($stuff, $context) ];
+        return $nodeCopy;
     }
     else {
         return @res;
@@ -224,44 +203,44 @@ sub tal_on_error {
 
 
 sub tal_define {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:define"};
-    defined $stuff or return $self->tal_condition($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_condition($node, $context);
     my $newContext = { %$context };
     for my $def (split /;(?!;)/, $stuff) {
         $def = trim($def);
         my ($symbol, $expression) = split /\s+/, $def, 2;
         $newContext->{$symbol} = $self->resolve_expression($expression, $newContext);
     }
-    return $self->tal_condition($node, $xml, $end, $newContext);
+    return $self->tal_condition($node, $newContext);
 }
 
 
 sub tal_condition {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:condition"};
-    defined $stuff or return $self->tal_repeat($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_repeat($node, $context);
 
     for my $cond (split /;(?!;)/, $stuff) {
         $cond = trim($cond);
         $self->resolve_expression($cond, $context) or return '';
     }
-    return $self->tal_repeat($node, $xml, $end, $context);
+    return $self->tal_repeat($node, $context);
 }
 
 
 sub tal_repeat {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:repeat"};
-    defined $stuff or return $self->tal_content($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_content($node, $context);
 
     my @loops = split /;(?!;)/, $stuff;
     my $count = 0;
-    return $self->_do_repeat(\$count, 1, \@loops, $node, $xml, $end, { %$context });
+    return $self->_do_repeat(\$count, 1, \@loops, $node, { %$context });
 }
 
 sub _do_repeat {
-    my ($self, $count, $last, $loops_ref, $node, $xml, $end, $context) = @_;
+    my ($self, $count, $last, $loops_ref, $node, $context) = @_;
     my @loops = @$loops_ref;
     my $stuff = shift @loops;
     my $repeat = trim ($stuff);
@@ -273,7 +252,7 @@ sub _do_repeat {
         my $item = $array->[$idx];
         $context->{$symbol} = $item;
         if (@loops) {
-            push @result, $self->_do_repeat($count, $last && $idx == $#$array, \@loops, $node, $xml, $end, $context);
+            push @result, $self->_do_repeat($count, $last && $idx == $#$array, \@loops, $node, $context);
         }
         else {
             $$count++;
@@ -286,46 +265,41 @@ sub _do_repeat {
             $context->{repeat}->{end}    = $last && $idx == $#$array ? 1 : 0;
             $context->{repeat}->{inner}  = $context->{repeat}->{start} || $context->{repeat}->{end} ? 0 : 1;
 
-            my $node_clone = { %$node };
-            my $xml_clone  = [ map { { %$_ } } @$xml ]; # XXX deep copy
-            my @res = $self->tal_content($node_clone, $xml_clone, $end, $context);
-
-            push @result, @res;
+            push @result, $self->tal_content(_deep_copy($node), $context);
         }
     }
     return @result;
 }
 
-
 sub tal_content {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:content"};
-    defined $stuff or return $self->tal_replace($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_replace($node, $context);
 
     my $res = $self->resolve_expression($stuff, $context);
-    $xml    = defined $res ? [ $res ] : [];
-    delete $node->{_close} and $end = "</$node->{_tag}>"; # deal with self closing tags
+    $node->{_kids} = defined $res ? [ $res ] : [];
+    delete $node->{_close};
 
     # set the stop recurse flag so that if content contains $foo and $bar,
     # those aren't interpolated as variables.
     local $STOP_RECURSE = 1;
-    return $self->tal_replace($node, $xml, $end, $context);
+    return $self->tal_replace($node, $context);
 }
 
 
 sub tal_replace {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:replace"};
-    defined $stuff or return $self->tal_attributes($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_attributes($node, $context);
     my $res = $self->resolve_expression($stuff, $context);
     return defined $res ? $res : '';
 }
 
 
 sub tal_attributes {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff = delete $node->{"$TAL:attributes"};
-    defined $stuff or return $self->tal_omit_tag($node, $xml, $end, $context);
+    defined $stuff or return $self->tal_omit_tag($node, $context);
 
     for my $att (split /;(?!;)/, $stuff) {
         $att = trim ($att);
@@ -344,22 +318,24 @@ sub tal_attributes {
             delete $node->{$symbol} unless $add;
         }
     }
-    return $self->tal_omit_tag($node, $xml, $end, $context);
+    return $self->tal_omit_tag($node, $context);
 }
 
 
 sub tal_omit_tag {
-    my ($self, $node, $xml, $end, $context) = @_;
+    my ($self, $node, $context) = @_;
     my $stuff  = delete $node->{"$TAL:omit-tag"};
-    my $omit   = defined $stuff ? do { $stuff eq '' ? 1 : $self->resolve_expression($stuff, $context) } : undef;
-    $omit and not $end and return ''; # omit-tag on a self-closing tag means *poof*, nothing left
-    my @result = ();
-    push @result, $node unless $omit;
-    if ($end) {
-        push @result, $STOP_RECURSE ? @$xml : $self->makeitso($xml, $context);
-        push @result, $end unless $omit;
+    if (defined $stuff) {
+        my $omit = $stuff eq '' ? 1 : $self->resolve_expression($stuff, $context);
+        if ($omit) {
+            return $STOP_RECURSE ? @{ $node->{_kids} } : $self->makeitso($node->{_kids}, $context);
+        }
     }
-    return @result;
+    return $node if $STOP_RECURSE;
+
+    my $clone = { %$node };
+    $clone->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
+    return $clone;
 }
 
 
@@ -473,9 +449,7 @@ sub modifier_false {
 
 
 sub modifier_string {
-    my $self    = shift;
-    my $string  = shift;
-    my $context = shift;
+    my ($self, $string, $context) = @_;
     $string = $self->_interpolate_dollar($context, $string, 'resolve');
     return $string;
 }
@@ -486,24 +460,32 @@ sub node2tag {
 
     return $node unless ref $node eq 'HASH'; # handle textnodes introduced in various tal_ methods
 
+    my $change = delete $node->{_change};
+    my $elem   = delete $node->{_elem};
+    my $kids   = delete $node->{_kids};
     my $tag    = delete $node->{_tag};
     my $open   = delete $node->{_open};
     my $close  = delete $node->{_close};
-    my $change = delete $node->{_change};
+    my %keys   = map { $_ => $_ } keys %$node;
+    my $att    = join ' ', map { qq|$_="$node->{$_}"| } keys %keys; # XXX not a fan, should keep original quote
 
-    if ($change) {
-        my %keys = map { $_ => $_ } keys %$node;
-        delete $keys{_elem};
-        delete $keys{_kids};
-
-        my $att = join ' ', map { qq|$_="$node->{$_}"| } keys %keys;
-        $open  and $close and return $att ? "<$tag $att />" : "<$tag />";
-                   $close and return "</$tag>";
-        $open             and return $att ? "<$tag $att>" : "<$tag>";
+    if ($open and $close) {
+        return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
     }
-    return $node->{_elem};
-}
+    elsif ($open) {
+        my $start = $change ? ($att ? "<$tag $att>" : "<$tag>") : $elem;
+        my $end   = "</$tag>";
+        my $middle = "";
+        for my $kid (@$kids) {
+            $middle .= node2tag($kid);
+        }
 
+        return $start . $middle . $end;
+    }
+    else {
+        return $node->{_elem};
+    }
+}
 
 sub trim {
     my $string = shift;
@@ -518,27 +500,29 @@ sub trim {
 
 sub has_instructions {
     my $node = shift;
-    return grep /^$TAL:/, keys %{$node};
+    return grep /^$TAL:/, keys %$node;
 }
 
 sub tag2node {
     my $elem = shift;
 
-    my $is_open       = is_tag_open($elem);
-    my $is_close      = is_tag_close($elem);
-    my $is_self_close = is_tag_self_close($elem);
+    if ($elem =~ /^<(?![!?])/) {
+        my $is_open       = is_tag_open($elem);
+        my $is_close      = is_tag_close($elem);
+        my $is_self_close = is_tag_self_close($elem);
 
-    if ($is_open || $is_self_close || $is_close) {
-        my %node  = extract_attributes ($elem);
-	my ($tag) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
-	return {
-            %node,
-            _tag   => $tag,
-            _open  => $is_open  || $is_self_close,
-            _close => $is_close || $is_self_close,
-            _elem  => $elem,
-            _kids  => [],
-        };
+        if ($is_open || $is_self_close || $is_close) {
+            my %node  = extract_attributes ($elem);
+            my ($tag) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
+            return {
+                %node,
+                _tag   => $tag,
+                _open  => $is_open  || $is_self_close,
+                _close => $is_close || $is_self_close,
+                _elem  => $elem,
+                _kids  => [],
+            };
+        }
     }
 
     return {
@@ -550,11 +534,8 @@ sub tag2node {
 sub is_tag_open {
     my $elem = shift;
     return (
-        $elem =~ /^</   and
-        $elem !~ /^<\!/ and
         $elem !~ /^<\// and
-        $elem !~ /\/>$/ and
-        $elem !~ /^<\?/
+        $elem !~ /\/>$/
     );
 }
 
@@ -569,28 +550,10 @@ sub is_tag_close {
 sub is_tag_self_close {
     my $elem = shift;
     return (
-        $elem =~ /^</   and
-        $elem !~ /^<\!/ and
         $elem !~ /^<\// and
         $elem =~ /\/>$/
     );
 }
-
-sub is_node_open {
-    my $node = shift;
-    return $node->{_open};
-}
-
-sub is_node_close {
-    my $node = shift;
-    return $node->{_close};
-}
-
-sub is_node_self_close {
-    my $node = shift;
-    return $node->{_open} && $node->{_close};
-}
-
 
 sub extract_attributes {
     my $tag = shift;

@@ -11,7 +11,8 @@ BEGIN { use_ok('Petal::Tiny') };
 
 
 my $data   = join '', <DATA>;
-my $output = Petal::Tiny->makeitso($data, {
+my $petal  = Petal::Tiny->new($data);
+my $output = $petal->process(
     foo     => 'bar',
     content => 'CONTENT',
     dquote  => '"',
@@ -21,7 +22,7 @@ my $output = Petal::Tiny->makeitso($data, {
     greate  => ">",
     list    => [ qw /foo bar baz buz/ ],
     count   => [ 1 .. 5 ],
-} );
+);
 
 like ($output, qr/\<plain i='am' un='touched'\/\>/);
 like ($output, qr/\<define\s*\/\>/);
