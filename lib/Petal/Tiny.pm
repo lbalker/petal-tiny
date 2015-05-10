@@ -460,9 +460,12 @@ sub tag2node {
     my $elem = shift;
 
     if ($elem =~ /^<(?![!?])/) {
-        my $is_open       = ( $elem !~ m,^</, && $elem !~ m,/>$, );
-        my $is_close      = ( $elem =~ m,^</, && $elem !~ m,/>$, );
-        my $is_self_close = ( $elem !~ m,^</, && $elem =~ m,/>$, );
+        my $has_self_close = $elem =~ m,/>$,;
+        my $has_close      = $elem =~ m,^</,;
+
+        my $is_open       = !$has_close && !$has_self_close;
+        my $is_close      =  $has_close && !$has_self_close;
+        my $is_self_close = !$has_close &&  $has_self_close;
 
         if ($is_open || $is_self_close || $is_close) {
             my %node  = extract_attributes ($elem);
