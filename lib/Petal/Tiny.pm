@@ -48,8 +48,6 @@ my $VARIABLE_RE_BRACKETS = qq |(?<!\$)\\{.*?(?<!\\\\)\\}|;
 my $STRING_TOKEN_RE      = "($VARIABLE_RE_SIMPLE|$VARIABLE_RE_BRACKETS)";
 
 our $TAL = 'petal';
-our $STOP_RECURSE = 0;
-
 
 sub new {
     my $class = shift;
@@ -168,75 +166,97 @@ sub namespace {
 
 
 sub makeitso_node {
-    my $self    = shift;
-    my $node    = shift;
-    my $context = shift;
+    my ($self, $node, $context) = @_;
+
     my $ns      = $self->namespace($node);
     local $TAL  = $ns || $TAL;
+
+    my $STOP_RECURSE = 0;
+    
     if (has_instructions($node)) {
         $node->{_change} = 1;
-        return $self->tal_on_error($node, { %$context });
+
+        $context = { %$context };
+
+        if (defined( my $stuff = delete $node->{"$TAL:on-error"} )) {
+            my $nodeCopy = { %$node };
+            my @res = eval { $self->makeitso_node($node, $context); };
+            if ($@) {
+                for my $k (keys %$nodeCopy) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
+                delete $nodeCopy->{_close};
+                $nodeCopy->{_kids} = [ $self->resolve_expression($stuff, $context) ];
+                return $nodeCopy;
+            }
+            return @res;
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:define"} )) {
+            for my $def (split /;(?!;)/, $stuff) {
+                $def = trim($def);
+                my ($symbol, $expression) = split /\s+/, $def, 2;
+                $context->{$symbol} = $self->resolve_expression($expression, $context);
+            }
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:condition"} )) {
+            for my $cond (split /;(?!;)/, $stuff) {
+                return '' unless $self->resolve_expression($cond, $context);
+            }
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:repeat"} )) {
+            my @loops = split /;(?!;)/, $stuff;
+            my $count = 0;
+            return $self->_do_repeat(\$count, 1, \@loops, $node, $context);
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:content"} )) {
+            my $res = $self->resolve_expression($stuff, $context);
+            $node->{_kids} = defined $res ? [ $res ] : [];
+            delete $node->{_close};
+
+            # set the stop recurse flag so that if content contains $foo and $bar,
+            # those aren't interpolated as variables.
+            $STOP_RECURSE = 1;
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:replace"} )) {
+            my $res = $self->resolve_expression($stuff, $context);
+            return defined $res ? $res : '';
+        }
+
+        if (defined( my $stuff = delete $node->{"$TAL:attributes"} )) {
+            for my $att (split /;(?!;)/, $stuff) {
+                $att = trim ($att);
+                my ($symbol, $expression) = split /\s+/, $att, 2;
+                my $add = ($symbol =~ s/^\+//);
+                my $new = $self->resolve_expression($expression, $context);
+                if (defined $new) {
+                    if ($add) {
+                        my $old = $node->{$symbol};
+                        $old = "" unless defined $old;
+                        $new = $old . $new;
+                    }
+                    $node->{$symbol} = $new;
+                }
+                else {
+                    delete $node->{$symbol} unless $add;
+                }
+            }
+        }
+
+        if (defined(my $stuff = delete $node->{"$TAL:omit-tag"})) {
+            if ($stuff eq '' or $self->resolve_expression($stuff, $context)) {
+                return @{ $node->{_kids} } if $STOP_RECURSE;
+                return $self->makeitso($node->{_kids}, $context);
+            }
+        }
     }
-    else {
-        $node->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
-        return $node;
-    }
-}
 
+    return $node if $STOP_RECURSE;
 
-sub tal_on_error {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:on-error"};
-    defined $stuff or return $self->tal_define($node, $context);
-    my $nodeCopy = { %$node };
-    my @res = eval { $self->tal_define($node, $context) };
-    if ($@) {
-        for my $k (keys %$nodeCopy) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
-        delete $nodeCopy->{_close};
-        $nodeCopy->{_kids} = [ $self->resolve_expression($stuff, $context) ];
-        return $nodeCopy;
-    }
-    else {
-        return @res;
-    }
-}
-
-
-sub tal_define {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:define"};
-    defined $stuff or return $self->tal_condition($node, $context);
-    my $newContext = { %$context };
-    for my $def (split /;(?!;)/, $stuff) {
-        $def = trim($def);
-        my ($symbol, $expression) = split /\s+/, $def, 2;
-        $newContext->{$symbol} = $self->resolve_expression($expression, $newContext);
-    }
-    return $self->tal_condition($node, $newContext);
-}
-
-
-sub tal_condition {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:condition"};
-    defined $stuff or return $self->tal_repeat($node, $context);
-
-    for my $cond (split /;(?!;)/, $stuff) {
-        $cond = trim($cond);
-        $self->resolve_expression($cond, $context) or return '';
-    }
-    return $self->tal_repeat($node, $context);
-}
-
-
-sub tal_repeat {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:repeat"};
-    defined $stuff or return $self->tal_content($node, $context);
-
-    my @loops = split /;(?!;)/, $stuff;
-    my $count = 0;
-    return $self->_do_repeat(\$count, 1, \@loops, $node, { %$context });
+    $node->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
+    return $node;
 }
 
 sub _do_repeat {
@@ -265,77 +285,10 @@ sub _do_repeat {
             $context->{repeat}->{end}    = $last && $idx == $#$array ? 1 : 0;
             $context->{repeat}->{inner}  = $context->{repeat}->{start} || $context->{repeat}->{end} ? 0 : 1;
 
-            push @result, $self->tal_content(_deep_copy($node), $context);
+            push @result, $self->makeitso_node(_deep_copy($node), $context);
         }
     }
     return @result;
-}
-
-sub tal_content {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:content"};
-    defined $stuff or return $self->tal_replace($node, $context);
-
-    my $res = $self->resolve_expression($stuff, $context);
-    $node->{_kids} = defined $res ? [ $res ] : [];
-    delete $node->{_close};
-
-    # set the stop recurse flag so that if content contains $foo and $bar,
-    # those aren't interpolated as variables.
-    local $STOP_RECURSE = 1;
-    return $self->tal_replace($node, $context);
-}
-
-
-sub tal_replace {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:replace"};
-    defined $stuff or return $self->tal_attributes($node, $context);
-    my $res = $self->resolve_expression($stuff, $context);
-    return defined $res ? $res : '';
-}
-
-
-sub tal_attributes {
-    my ($self, $node, $context) = @_;
-    my $stuff = delete $node->{"$TAL:attributes"};
-    defined $stuff or return $self->tal_omit_tag($node, $context);
-
-    for my $att (split /;(?!;)/, $stuff) {
-        $att = trim ($att);
-        my ($symbol, $expression) = split /\s+/, $att, 2;
-        my $add = ($symbol =~ s/^\+//);
-        my $new = $self->resolve_expression($expression, $context);
-        if (defined $new) {
-            if ($add) {
-                my $old = $node->{$symbol};
-                $old = "" unless defined $old;
-                $new = $old . $new;
-            }
-            $node->{$symbol} = $new;
-        }
-        else {
-            delete $node->{$symbol} unless $add;
-        }
-    }
-    return $self->tal_omit_tag($node, $context);
-}
-
-
-sub tal_omit_tag {
-    my ($self, $node, $context) = @_;
-    my $stuff  = delete $node->{"$TAL:omit-tag"};
-    if (defined $stuff) {
-        my $omit = $stuff eq '' ? 1 : $self->resolve_expression($stuff, $context);
-        if ($omit) {
-            return $STOP_RECURSE ? @{ $node->{_kids} } : $self->makeitso($node->{_kids}, $context);
-        }
-    }
-    return $node if $STOP_RECURSE;
-
-    my $clone = { %$node };
-    $clone->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
-    return $clone;
 }
 
 
@@ -458,7 +411,7 @@ sub modifier_string {
 sub node2tag {
     my $node  = shift;
 
-    return $node unless ref $node eq 'HASH'; # handle textnodes introduced in various tal_ methods
+    return $node unless ref $node eq 'HASH'; # handle textnodes introduced in makeitso_node
 
     my $change = delete $node->{_change};
     my $elem   = delete $node->{_elem};
