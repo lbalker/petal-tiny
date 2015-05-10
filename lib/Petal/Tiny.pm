@@ -460,9 +460,9 @@ sub tag2node {
     my $elem = shift;
 
     if ($elem =~ /^<(?![!?])/) {
-        my $is_open       = is_tag_open($elem);
-        my $is_close      = is_tag_close($elem);
-        my $is_self_close = is_tag_self_close($elem);
+        my $is_open       = ( $elem !~ m,^</, && $elem !~ m,/>$, );
+        my $is_close      = ( $elem =~ m,^</, && $elem !~ m,/>$, );
+        my $is_self_close = ( $elem !~ m,^</, && $elem =~ m,/>$, );
 
         if ($is_open || $is_self_close || $is_close) {
             my %node  = extract_attributes ($elem);
@@ -482,30 +482,6 @@ sub tag2node {
         _elem => $elem,
         _kids => [],
     };
-}
-
-sub is_tag_open {
-    my $elem = shift;
-    return (
-        $elem !~ /^<\// and
-        $elem !~ /\/>$/
-    );
-}
-
-sub is_tag_close {
-    my $elem = shift;
-    return (
-        $elem =~ /^<\// and
-        $elem !~ /\/>$/
-    );
-}
-
-sub is_tag_self_close {
-    my $elem = shift;
-    return (
-        $elem !~ /^<\// and
-        $elem =~ /\/>$/
-    );
 }
 
 sub extract_attributes {
