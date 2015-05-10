@@ -442,7 +442,7 @@ sub node2tag {
 
 sub trim {
     my $string = shift;
-    $string or return $string;
+    defined $string or return $string;
     $string =~ s/\r//g;
     $string =~ s/\n/ /g;
     $string =~ s/^\s+//;
