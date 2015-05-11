@@ -155,8 +155,6 @@ sub makeitso_node {
     if ($node->{_has_tal}) {
         $node->{_change} = 1;
 
-        $context = { %$context };
-
         if (defined( my $stuff = delete $node->{"$TAL:on-error"} )) {
             my $nodeCopy = { %$node };
             my @res = eval { $self->makeitso_node($node, $context); };
@@ -168,6 +166,8 @@ sub makeitso_node {
             }
             return @res;
         }
+
+        $context = { %$context };
 
         if (defined( my $stuff = delete $node->{"$TAL:define"} )) {
             for my $def (split /;(?!;)/, $stuff) {
@@ -400,13 +400,13 @@ sub node2tag {
     my $open   = delete $node->{_open};
     my $close  = delete $node->{_close};
     my $quotes = delete $node->{_quotes};
-    my %keys   = map { $_ => $_ } keys %$node;
-    my $att    = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %keys;
+    my $att    = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %$node;
 
-    if ($open and $close) {
-        return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
-    }
-    elsif ($open) {
+    if ($open) {
+        if ($close) {
+            return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
+        }
+
         my $start = $change ? ($att ? "<$tag $att>" : "<$tag>") : $elem;
         my $end   = "</$tag>";
         my $middle = "";
@@ -416,9 +416,7 @@ sub node2tag {
 
         return $start . $middle . $end;
     }
-    else {
-        return $node->{_elem};
-    }
+    return $node->{_elem};
 }
 
 sub trim {
@@ -453,8 +451,6 @@ sub tag2node {
 
     return {
         _elem => $elem,
-        _ns   => $ns,
-        _kids => [],
     };
 }
 
@@ -487,15 +483,18 @@ sub extract_attributes {
     %attr;
 }
 
+my %_encode_dict = (
+    '&' => '&amp;',
+    '<' => '&lt;',
+    '>' => '&gt;',
+    '"' => '&quot;',
+    "'" => '&apos;',
+);
 
 sub xmlencode {
     my $string = shift;
     return $string if !$string or ref $string;
-    $string =~ s/&/&amp;/g;
-    $string =~ s/</&lt;/g;
-    $string =~ s/>/&gt;/g;
-    $string =~ s/"/&quot;/g;
-    $string =~ s/'/&apos;/g;
+    $string =~ s/([&<>"'])/$_encode_dict{$1}/g;
     return $string;
 }
 
