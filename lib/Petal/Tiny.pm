@@ -42,7 +42,7 @@ my $XML_SPE = "$TextSE|$MarkupSPE";
 
 my $RE_2 = qr /$ElemTagCE_Mod/;
 
-our $TAL = 'petal';
+my $DEFAULT_NS = 'petal';
 
 sub new {
     my $class = shift;
@@ -74,9 +74,10 @@ sub xml2nodes {
 
     my @flat = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
 
-    my $top = { _kids => [] };
+    my $top = { _kids => [], _ns => $DEFAULT_NS };
     my @nest = ( $top );
     for my $node (@flat) {
+        $node->{_ns} ||= $nest[-1]{_ns}; # if ns is not explicitly set, inherit parent ns
         if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
             push @{ $nest[-1]{_kids} }, $node;
         }
@@ -147,8 +148,7 @@ sub _deep_copy {
 sub makeitso_node {
     my ($self, $node, $context) = @_;
 
-    my $ns      = delete $node->{_ns};
-    local $TAL  = $ns || $TAL;
+    my $TAL = $node->{_ns};
 
     my $STOP_RECURSE = 0;
     
@@ -390,6 +390,8 @@ sub node2tag {
 
     return $node unless ref $node eq 'HASH'; # handle textnodes introduced in makeitso_node
 
+    delete $node->{_ns};
+
     my $change = delete $node->{_change};
     my $elem   = delete $node->{_elem};
     my $kids   = delete $node->{_kids};
@@ -430,6 +432,7 @@ sub trim {
 
 sub has_instructions {
     my $node = shift;
+    my $TAL  = $node->{_ns};
     for (keys %$node) {
         return 1 if /^$TAL:/;
     }
