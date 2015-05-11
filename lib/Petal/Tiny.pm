@@ -74,10 +74,15 @@ sub process {
     return $self->makeitso($self->xml2nodes($data), $context); # earl grey. hot.
 }
 
+sub _xml {
+    my $xml = shift;
+    return ( $xml =~ /$XML_SPE/g )
+}
+
 sub xml2nodes {
     my ($self, $xml) = @_;
 
-    my @flat = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+    my @flat = map { tag2node($_) } _xml($xml);
 
     my $top = { _kids => [] };
     my @nest = ( $top );
@@ -459,26 +464,15 @@ sub has_instructions {
 sub tag2node {
     my $elem = shift;
 
-    if ($elem =~ /^<(?![!?])/) {
-        my $has_self_close = $elem =~ m,/>$,;
-        my $has_close      = $elem =~ m,^</,;
+    if (my ($has_close, $tag, $has_self_close) = ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]*).*?(/?)>$,)) {
+        my %node      = extract_attributes($elem);
+        $node{_tag}   = $tag;
+        $node{_open}  = !$has_close;
+        $node{_close} = $has_close || $has_self_close;
+        $node{_elem}  = $elem;
+        $node{_kids}  = [];
 
-        my $is_open       = !$has_close && !$has_self_close;
-        my $is_close      =  $has_close && !$has_self_close;
-        my $is_self_close = !$has_close &&  $has_self_close;
-
-        if ($is_open || $is_self_close || $is_close) {
-            my %node  = extract_attributes ($elem);
-            my ($tag) = $elem =~ /.*?([A-Za-z0-9][A-Za-z0-9_:-]*)/;
-            return {
-                %node,
-                _tag   => $tag,
-                _open  => $is_open  || $is_self_close,
-                _close => $is_close || $is_self_close,
-                _elem  => $elem,
-                _kids  => [],
-            };
-        }
+        return \%node;
     }
 
     return {
