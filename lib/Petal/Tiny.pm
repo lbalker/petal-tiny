@@ -40,8 +40,6 @@ my $MarkupSPE = "<(?:!(?:$DeclCE)?|\\?(?:$PI_CE)?|/(?:$EndTagCE)?|(?:$ElemTagCE)
 my $XML_SPE = "$TextSE|$MarkupSPE";
 # REX END - thank you Robert for this 26 line XML parser - awesome ...
 
-
-my $RE_1 = qr /$ElemTagCE/;
 my $RE_2 = qr /$ElemTagCE_Mod/;
 
 our $TAL = 'petal';
@@ -71,15 +69,10 @@ sub process {
     return $self->makeitso($self->xml2nodes($data), $context); # earl grey. hot.
 }
 
-sub _xml {
-    my $xml = shift;
-    return ( $xml =~ /$XML_SPE/g )
-}
-
 sub xml2nodes {
     my ($self, $xml) = @_;
 
-    my @flat = map { tag2node($_) } _xml($xml);
+    my @flat = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
 
     my $top = { _kids => [] };
     my @nest = ( $top );
@@ -124,15 +117,15 @@ sub makeitso {
 sub _interpolate_dollar {
     my ($self, $context, $string, $method) = @_;
 
-    my $subst = sub {
-        my $what = shift;
-        my $res = $self->$method($what, $context);
-        return $res if defined $res;
-        carp "'$what' in \$-interpolation resolved to undef";
-        return "";
-    };
-
     if ($string =~ /\$/) {
+        my $subst = sub {
+            my $what = shift;
+            my $res = $self->$method($what, $context);
+            return $res if defined $res;
+            carp "'$what' in \$-interpolation resolved to undef";
+            return "";
+        };
+
         $string =~ s/(?<!\$) \$\{  ( [^{}]+           ) \}  / $subst->($1) /xegi;
         $string =~ s/(?<!\$) \$\{? ( [a-z0-9-\/\:\_]+ ) \}? / $subst->($1) /xegi;
         $string =~ s/\$\$/\$/g;
@@ -421,8 +414,9 @@ sub node2tag {
     my $tag    = delete $node->{_tag};
     my $open   = delete $node->{_open};
     my $close  = delete $node->{_close};
+    my $quotes = delete $node->{_quotes};
     my %keys   = map { $_ => $_ } keys %$node;
-    my $att    = join ' ', map { qq|$_="$node->{$_}"| } keys %keys; # XXX not a fan, should keep original quote
+    my $att    = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %keys;
 
     if ($open and $close) {
         return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
@@ -455,7 +449,10 @@ sub trim {
 
 sub has_instructions {
     my $node = shift;
-    return grep /^$TAL:/, keys %$node;
+    for (keys %$node) {
+        return 1 if /^$TAL:/;
+    }
+    return 0;
 }
 
 sub tag2node {
@@ -481,12 +478,12 @@ sub tag2node {
 sub extract_attributes {
     my $tag = shift;
     my %attr = $tag =~ /$RE_2/g;
+    my %quotes;
     foreach my $key (keys %attr) {
-        my $val = $attr{$key};
-        $val    =~ s/^(\"|\')//;
-        $val    =~ s/(\"|\')$//;
-        $attr{$key} = $val;
+        $attr{$key} =~ s/^(['"])(.*?)\1$/$2/;
+        $quotes{$key} = $1;
     }
+    $attr{_quotes} = \%quotes;
 
     %attr;
 }
