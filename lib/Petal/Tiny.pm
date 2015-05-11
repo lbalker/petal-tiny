@@ -144,26 +144,10 @@ sub _deep_copy {
     return \%copy;
 }
 
-sub namespace {
-    my $self = shift;
-    my $node = shift;
-    for my $k (keys %$node) {
-        $k =~ /^xmlns\:/ or next;
-        if ($node->{$k} eq 'http://purl.org/petal/1.0/') {
-            delete $node->{$k};
-            $node->{_change} = 1;
-            $k =~ s/^xmlns\://;
-            return $k;
-        }
-    }
-    return;
-}
-
-
 sub makeitso_node {
     my ($self, $node, $context) = @_;
 
-    my $ns      = $self->namespace($node);
+    my $ns      = delete $node->{_ns};
     local $TAL  = $ns || $TAL;
 
     my $STOP_RECURSE = 0;
@@ -288,11 +272,9 @@ sub _do_repeat {
 
 
 sub resolve_expression {
-    my $self    = shift;
-    my $expr    = trim(shift);
-    my $context = shift || confess "resolve_expression() : no context";
-    $expr =~ s/\;\;/;/g;
-    $expr =~ s/\$\$/\$/g;
+    my ($self, $expr, $context) = @_;
+    $expr = trim($expr);
+    $expr =~ s/([;\$])\1/$1/g;
     $expr eq 'nothing' and return undef;
     $expr =~ s/^fresh\s+//;
     my $structure = ($expr =~ s/^structure\s+//);
@@ -323,7 +305,7 @@ sub resolve {
     defined $what or return;
 
     my (@path)   = split /\//, $what;
-    my @resolved = ();
+    my @resolved;
     my $obj      = $context;
     @args        = map { $self->resolve($_, $context) } @args;
     while (@path) {
@@ -439,8 +421,7 @@ sub node2tag {
 sub trim {
     my $string = shift;
     defined $string or return $string;
-    $string =~ s/\r//g;
-    $string =~ s/\n/ /g;
+    $string =~ s/[\n\r]/ /g;
     $string =~ s/^\s+//;
     $string =~ s/\s+$//;
     return $string;
@@ -481,7 +462,16 @@ sub extract_attributes {
     my %quotes;
     foreach my $key (keys %attr) {
         $attr{$key} =~ s/^(['"])(.*?)\1$/$2/;
-        $quotes{$key} = $1;
+
+        if ($key =~ /^xmlns:/ && $attr{$key} eq 'http://purl.org/petal/1.0/') {
+            delete $attr{$key};
+            $key =~ s/^xmlns\://;
+            $attr{_ns} = $key;
+            $attr{_change} = 1;
+        }
+        else {
+            $quotes{$key} = $1;
+        }
     }
     $attr{_quotes} = \%quotes;
 
