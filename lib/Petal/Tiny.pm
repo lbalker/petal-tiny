@@ -112,7 +112,7 @@ sub makeitso {
         }
     }
 
-    return join "", map { node2tag($_) } @res;
+    return join "", @res;
 }
 
 sub _interpolate_dollar {
@@ -157,14 +157,14 @@ sub makeitso_node {
 
         if (defined( my $stuff = delete $node->{"$TAL:on-error"} )) {
             my $nodeCopy = { %$node };
-            my @res = eval { $self->makeitso_node($node, $context); };
+            my $res = eval { $self->makeitso_node($node, $context); };
             if ($@) {
                 for my $k (keys %$nodeCopy) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
                 delete $nodeCopy->{_close};
-                $nodeCopy->{_kids} = [ $self->resolve_expression($stuff, $context) ];
-                return $nodeCopy;
+                $nodeCopy->{_contents} = $self->resolve_expression($stuff, $context);
+                return node2txt($nodeCopy);
             }
-            return @res;
+            return $res;
         }
 
         $context = { %$context };
@@ -186,12 +186,12 @@ sub makeitso_node {
         if (defined( my $stuff = delete $node->{"$TAL:repeat"} )) {
             my @loops = split /;(?!;)/, $stuff;
             my $count = 0;
-            return $self->_do_repeat(\$count, 1, \@loops, $node, $context);
+            return join "", $self->_do_repeat(\$count, 1, \@loops, $node, $context);
         }
 
         if (defined( my $stuff = delete $node->{"$TAL:content"} )) {
             my $res = $self->resolve_expression($stuff, $context);
-            $node->{_kids} = defined $res ? [ $res ] : [];
+            $node->{_contents} = defined $res ? $res : "";
             delete $node->{_close};
 
             # set the stop recurse flag so that if content contains $foo and $bar,
@@ -226,16 +226,16 @@ sub makeitso_node {
 
         if (defined(my $stuff = delete $node->{"$TAL:omit-tag"})) {
             if ($stuff eq '' or $self->resolve_expression($stuff, $context)) {
-                return @{ $node->{_kids} } if $STOP_RECURSE;
+                return $node->{_contents} if $STOP_RECURSE;
                 return $self->makeitso($node->{_kids}, $context);
             }
         }
     }
 
-    return $node if $STOP_RECURSE;
+    return node2txt($node) if $STOP_RECURSE;
 
-    $node->{_kids} = [ $self->makeitso($node->{_kids}, $context) ];
-    return $node;
+    $node->{_contents} = $self->makeitso($node->{_kids}, $context);
+    return node2txt($node);
 }
 
 sub _do_repeat {
@@ -385,22 +385,23 @@ sub modifier_string {
 }
 
 
-sub node2tag {
+sub node2txt {
     my $node  = shift;
 
     return $node unless ref $node eq 'HASH'; # handle textnodes introduced in makeitso_node
 
     delete $node->{_ns};
     delete $node->{_has_tal};
+    delete $node->{_kids};
 
-    my $change = delete $node->{_change};
-    my $elem   = delete $node->{_elem};
-    my $kids   = delete $node->{_kids};
-    my $tag    = delete $node->{_tag};
-    my $open   = delete $node->{_open};
-    my $close  = delete $node->{_close};
-    my $quotes = delete $node->{_quotes};
-    my $att    = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %$node;
+    my $change   = delete $node->{_change};
+    my $elem     = delete $node->{_elem};
+    my $tag      = delete $node->{_tag};
+    my $open     = delete $node->{_open};
+    my $close    = delete $node->{_close};
+    my $quotes   = delete $node->{_quotes};
+    my $contents = delete $node->{_contents};
+    my $att      = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %$node;
 
     if ($open) {
         if ($close) {
@@ -409,12 +410,10 @@ sub node2tag {
 
         my $start = $change ? ($att ? "<$tag $att>" : "<$tag>") : $elem;
         my $end   = "</$tag>";
-        my $middle = "";
-        for my $kid (@$kids) {
-            $middle .= node2tag($kid);
-        }
 
-        return $start . $middle . $end;
+        $contents = "" unless defined $contents;
+
+        return $start . $contents . $end;
     }
     return $node->{_elem};
 }
