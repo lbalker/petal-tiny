@@ -40,7 +40,7 @@ my $MarkupSPE = "<(?:!(?:$DeclCE)?|\\?(?:$PI_CE)?|/(?:$EndTagCE)?|(?:$ElemTagCE)
 my $XML_SPE = "$TextSE|$MarkupSPE";
 # REX END - thank you Robert for this 26 line XML parser - awesome ...
 
-my $RE_2 = qr /$ElemTagCE_Mod/;
+my $ATTR_RE = qr /$ElemTagCE_Mod/;
 
 my $DEFAULT_NS = 'petal';
 
@@ -72,12 +72,12 @@ sub process {
 sub xml2nodes {
     my ($self, $xml) = @_;
 
-    my @flat = map { tag2node($_) } ( $xml =~ /$XML_SPE/g );
+    my @flat = ( $xml =~ /$XML_SPE/og );
 
     my $top = { _kids => [], _ns => $DEFAULT_NS };
     my @nest = ( $top );
-    for my $node (@flat) {
-        $node->{_ns} ||= $nest[-1]{_ns}; # if ns is not explicitly set, inherit parent ns
+    for my $tag (@flat) {
+        my $node = tag2node($tag, $nest[-1]{_ns}); # if ns is not explicitly set, inherit parent ns
         if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
             push @{ $nest[-1]{_kids} }, $node;
         }
@@ -152,7 +152,7 @@ sub makeitso_node {
 
     my $STOP_RECURSE = 0;
     
-    if (has_instructions($node)) {
+    if ($node->{_has_tal}) {
         $node->{_change} = 1;
 
         $context = { %$context };
@@ -391,6 +391,7 @@ sub node2tag {
     return $node unless ref $node eq 'HASH'; # handle textnodes introduced in makeitso_node
 
     delete $node->{_ns};
+    delete $node->{_has_tal};
 
     my $change = delete $node->{_change};
     my $elem   = delete $node->{_elem};
@@ -430,20 +431,17 @@ sub trim {
 }
 
 
-sub has_instructions {
-    my $node = shift;
-    my $TAL  = $node->{_ns};
-    for (keys %$node) {
-        return 1 if /^$TAL:/;
-    }
-    return 0;
-}
-
 sub tag2node {
-    my $elem = shift;
+    my ($elem, $ns) = @_;
 
-    if (my ($has_close, $tag, $has_self_close) = ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]*).*?(/?)>$,)) {
+    if ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]*).*?(/?)>$,) {
+        my ($has_close, $tag, $has_self_close) = ($1,$2,$3);
         my %node      = extract_attributes($elem);
+        $node{_ns}  ||= $ns;
+
+        $node{_has_tal} = exists $node{_ns_prefix}{ $node{_ns} };
+        delete $node{_ns_prefix};
+
         $node{_tag}   = $tag;
         $node{_open}  = !$has_close;
         $node{_close} = $has_close || $has_self_close;
@@ -455,28 +453,36 @@ sub tag2node {
 
     return {
         _elem => $elem,
+        _ns   => $ns,
         _kids => [],
     };
 }
 
 sub extract_attributes {
     my $tag = shift;
-    my %attr = $tag =~ /$RE_2/g;
-    my %quotes;
-    foreach my $key (keys %attr) {
-        $attr{$key} =~ s/^(['"])(.*?)\1$/$2/;
 
-        if ($key =~ /^xmlns:/ && $attr{$key} eq 'http://purl.org/petal/1.0/') {
-            delete $attr{$key};
-            $key =~ s/^xmlns\://;
-            $attr{_ns} = $key;
-            $attr{_change} = 1;
-        }
-        else {
-            $quotes{$key} = $1;
+    my %attr = $tag =~ /$ATTR_RE/og;
+
+    my (%quotes, %prefix);
+
+    foreach my $key (keys %attr) {
+        $attr{$key}   =~ s/^(['"])(.*?)\1$/$2/;
+        $quotes{$key} = $1;
+
+        if ($key =~ /^(.*?):/) {
+            if ($1 eq 'xmlns' && $attr{$key} eq 'http://purl.org/petal/1.0/') {
+                delete $attr{$key};
+                $key           =~ s/^xmlns\://;
+                $attr{_ns}     = $key;
+                $attr{_change} = 1;
+                next;
+            }
+            $prefix{$1} = 1;
         }
     }
+
     $attr{_quotes} = \%quotes;
+    $attr{_ns_prefix} = \%prefix;
 
     %attr;
 }
