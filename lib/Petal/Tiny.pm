@@ -43,9 +43,6 @@ my $XML_SPE = "$TextSE|$MarkupSPE";
 
 my $RE_1 = qr /$ElemTagCE/;
 my $RE_2 = qr /$ElemTagCE_Mod/;
-my $VARIABLE_RE_SIMPLE   = qq |\$[A-Za-z_][A-Za-z0-9_\.:\/]+|;
-my $VARIABLE_RE_BRACKETS = qq |(?<!\$)\\{.*?(?<!\\\\)\\}|;
-my $STRING_TOKEN_RE      = "($VARIABLE_RE_SIMPLE|$VARIABLE_RE_BRACKETS)";
 
 our $TAL = 'petal';
 
@@ -483,7 +480,6 @@ sub tag2node {
 
 sub extract_attributes {
     my $tag = shift;
-    my ($tags) = $tag =~ /$RE_1/g;
     my %attr = $tag =~ /$RE_2/g;
     foreach my $key (keys %attr) {
         my $val = $attr{$key};
