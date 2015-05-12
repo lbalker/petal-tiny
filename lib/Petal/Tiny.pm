@@ -78,16 +78,15 @@ sub xml2nodes {
     my @nest = ( $top );
     for my $tag (@flat) {
         my $node = tag2node($tag, $nest[-1]{_ns}); # if ns is not explicitly set, inherit parent ns
-        if (not $node->{_close} or $node->{_open}) { # don't include the close nodes (except for self-close)
-            push @{ $nest[-1]{_kids} }, $node;
-        }
-        if (not $node->{_close} and $node->{_open}) { # pure opens might have children
-            push @nest, $node;
-        }
-        elsif ($node->{_close} and not $node->{_open}) { # pure close eats the last open
+
+        if ($node->{_close}) {
             my $open = pop @nest;
             confess "unbalanced close-tag '</$node->{_tag}>'"                  if $open == $top;
             confess "wrong close-tag '</$node->{_tag}>' for '<$open->{_tag}>'" if lc($node->{_tag}) ne lc($open->{_tag});
+        }
+        else {
+            push @{ $nest[-1]{_kids} }, $node;
+            push @nest, $node unless ($node->{_simple} or $node->{_selfclose});
         }
     }
     confess "Unbalanced tree, more open than close nodes" if @nest > 1;
@@ -104,11 +103,11 @@ sub makeitso {
 
     my @res;
     for my $node (@$nodes) {
-        if ($node->{_open}) {
-            push @res, $self->makeitso_node($node, $context);
+        if ($node->{_simple}) {
+            push @res, $self->_interpolate_dollar($context, $node->{_elem}, 'resolve_expression');
         }
         else {
-            push @res, $self->_interpolate_dollar($context, $node->{_elem}, 'resolve_expression');
+            push @res, $self->makeitso_node($node, $context);
         }
     }
 
@@ -160,7 +159,7 @@ sub makeitso_node {
             my $res = eval { $self->makeitso_node($node, $context); };
             if ($@) {
                 for my $k (keys %$nodeCopy) { delete $nodeCopy->{$k} if $k =~ /^$TAL:/ }
-                delete $nodeCopy->{_close};
+                delete $nodeCopy->{_selfclose};
                 $nodeCopy->{_contents} = $self->resolve_expression($stuff, $context);
                 return node2txt($nodeCopy);
             }
@@ -191,7 +190,7 @@ sub makeitso_node {
         if (defined( my $stuff = delete $node->{"$TAL:content"} )) {
             my $res = $self->resolve_expression($stuff, $context);
             $node->{_contents} = defined $res ? $res : "";
-            delete $node->{_close};
+            delete $node->{_selfclose};
 
             # set the stop recurse flag so that if content contains $foo and $bar,
             # those aren't interpolated as variables.
@@ -230,9 +229,9 @@ sub makeitso_node {
         }
     }
 
-    return node2txt($node) if $STOP_RECURSE;
-
-    $node->{_contents} = $self->makeitso($node->{_kids}, $context);
+    unless ($STOP_RECURSE) {
+        $node->{_contents} = $self->makeitso($node->{_kids}, $context);
+    }
     return node2txt($node);
 }
 
@@ -387,6 +386,7 @@ sub node2txt {
     my $node  = shift;
 
     return $node unless ref $node eq 'HASH'; # handle textnodes introduced in makeitso_node
+    return $node->{_elem} if $node->{_simple};
 
     delete $node->{_ns};
     delete $node->{_has_tal};
@@ -395,49 +395,48 @@ sub node2txt {
     my $change   = delete $node->{_change};
     my $elem     = delete $node->{_elem};
     my $tag      = delete $node->{_tag};
-    my $open     = delete $node->{_open};
-    my $close    = delete $node->{_close};
+    my $close    = delete $node->{_selfclose};
     my $quotes   = delete $node->{_quotes};
     my $contents = delete $node->{_contents};
     my $att      = join ' ', map { my $q = $quotes->{$_} || '"'; qq|$_=$q$node->{$_}$q| } keys %$node;
 
-    if ($open) {
-        if ($close) {
-            return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
-        }
-
-        my $start = $change ? ($att ? "<$tag $att>" : "<$tag>") : $elem;
-        my $end   = "</$tag>";
-
-        $contents = "" unless defined $contents;
-
-        return $start . $contents . $end;
+    if ($close) {
+        return $change ? ($att ? "<$tag $att />" : "<$tag />") : $elem;
     }
-    return $node->{_elem};
+
+    my $start = $change ? ($att ? "<$tag $att>" : "<$tag>") : $elem;
+    my $end   = "</$tag>";
+
+    $contents = "" unless defined $contents;
+
+    return $start . $contents . $end;
 }
 
 sub tag2node {
     my ($elem, $ns) = @_;
 
-    if ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]*).*?(/?)>$,) {
+    if ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]+).*?(/?)>$,) {
         my ($has_close, $tag, $has_self_close) = ($1,$2,$3);
-        my %node      = extract_attributes($elem);
-        $node{_ns}  ||= $ns;
 
-        $node{_has_tal} = exists $node{_ns_prefix}{ $node{_ns} };
+        return { _tag => $tag, _close => 1 } if $has_close; # don't waste any time on </...> nodes, they're just for book-keeping
+
+        my %node          = extract_attributes($elem);
+        $node{_ns}      ||= $ns;
+
+        $node{_has_tal}   = exists $node{_ns_prefix}{ $node{_ns} };
+        $node{_tag}       = $tag;
+        $node{_selfclose} = $has_self_close;
+        $node{_elem}      = $elem;
+        $node{_kids}      = [];
+
         delete $node{_ns_prefix};
-
-        $node{_tag}   = $tag;
-        $node{_open}  = !$has_close;
-        $node{_close} = $has_close || $has_self_close;
-        $node{_elem}  = $elem;
-        $node{_kids}  = [];
 
         return \%node;
     }
 
     return {
         _elem => $elem,
+        _simple => 1,
     };
 }
 
@@ -449,8 +448,8 @@ sub extract_attributes {
     my (%quotes, %prefix);
 
     foreach my $key (keys %attr) {
-        $attr{$key}   =~ s/^(['"])(.*?)\1$/$2/;
-        $quotes{$key} = $1;
+        $attr{$key} =~ s/^(['"])(.*?)\1$/$2/;
+        my $q = $1 || '"';
 
         if ($key =~ /^(.*?):/) {
             if ($1 eq 'xmlns' && $attr{$key} eq 'http://purl.org/petal/1.0/') {
@@ -462,6 +461,7 @@ sub extract_attributes {
             }
             $prefix{$1} = 1;
         }
+        $quotes{$key} = $q;
     }
 
     $attr{_quotes} = \%quotes;
