@@ -1,7 +1,14 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
-
+        - Lots and lots of optimizations, much faster now.
+          Given a large benchmark, Devel::NYTProf reports:
+                1.13  "Executed 2158858 statements in 3.19s"
+                1.14  "Executed 454786 statements in 463ms"
+        - Fix the value '0' getting turned into the empty string in the
+          expression engine
+        - Use same quote-char for attributes as was in original html
+          (instead of forcing "").
 1.13      2014-11-12 14:35:53+01:00 Europe/Copenhagen
         - fixed old bug in tal_condition relating to anding ;-seperated values
 1.12      2014-11-12 12:11:45+01:00 Europe/Copenhagen
