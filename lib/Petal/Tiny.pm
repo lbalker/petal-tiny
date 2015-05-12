@@ -127,8 +127,8 @@ sub _interpolate_dollar {
             return "";
         };
 
-        $string =~ s/(?<!\$) \$\{  ( [^{}]+           ) \}  / $subst->($1) /xegi;
-        $string =~ s/(?<!\$) \$\{? ( [a-z0-9-\/\:\_]+ ) \}? / $subst->($1) /xegi;
+        $string =~ s/(?<!\$) \$\{  ( [^{}]+         ) \}  / $subst->($1) /xegi;
+        $string =~ s/(?<!\$) \$\{? ( [a-z0-9-\/:_]+ ) \}? / $subst->($1) /xegi;
         $string =~ s/\$\$/\$/g;
     }
     return $string;
@@ -171,8 +171,7 @@ sub makeitso_node {
 
         if (defined( my $stuff = delete $node->{"$TAL:define"} )) {
             for my $def (split /;(?!;)/, $stuff) {
-                $def = trim($def);
-                my ($symbol, $expression) = split /\s+/, $def, 2;
+                my ($symbol, $expression) = split ' ', $def, 2;
                 $context->{$symbol} = $self->resolve_expression($expression, $context);
             }
         }
@@ -206,8 +205,7 @@ sub makeitso_node {
 
         if (defined( my $stuff = delete $node->{"$TAL:attributes"} )) {
             for my $att (split /;(?!;)/, $stuff) {
-                $att = trim ($att);
-                my ($symbol, $expression) = split /\s+/, $att, 2;
+                my ($symbol, $expression) = split ' ', $att, 2;
                 my $add = ($symbol =~ s/^\+//);
                 my $new = $self->resolve_expression($expression, $context);
                 if (defined $new) {
@@ -242,8 +240,7 @@ sub _do_repeat {
     my ($self, $count, $last, $loops_ref, $node, $context) = @_;
     my @loops = @$loops_ref;
     my $stuff = shift @loops;
-    my $repeat = trim ($stuff);
-    my ($symbol, $expression) = split /\s+/, $repeat, 2;
+    my ($symbol, $expression) = split ' ', $stuff, 2;
     my $array  = $self->resolve_expression($expression, $context);
     $array = [ $array ] unless ref $array; # we don't judge
     my @result;
@@ -273,7 +270,12 @@ sub _do_repeat {
 
 sub resolve_expression {
     my ($self, $expr, $context) = @_;
-    $expr = trim($expr);
+
+    $expr = "" unless defined $expr;
+    $expr =~ s/[\n\r]/ /g;
+    $expr =~ s/^\s+//;
+    $expr =~ s/\s+$//;
+
     $expr =~ s/([;\$])\1/$1/g;
     $expr eq 'nothing' and return undef;
     $expr =~ s/^fresh\s+//;
@@ -288,20 +290,16 @@ sub reftype {
 }
 
 sub resolve {
-    my $self    = shift;
-    my $expr    = trim(shift);
-    my $context = shift || confess "resolve() : no context";
-    $expr =~ /:(?!pattern)/ and do {
-        my ($mod, $expr) = split /:(?!pattern)/, $expr, 2;
-        my $meth = "modifier_$mod";
-        $self->can("modifier_$mod") and return $self->$meth($expr, $context);
+    my ($self, $expr, $context) = @_;
+    $expr =~ /:(?!pattern)/ and do { # XXX what is :pattern?
+        my ($mod, $expr) = split /:(?!pattern)\s*/, $expr, 2;
+        my $meth = $self->can("modifier_$mod");
+        return $self->$meth($expr, $context) if $meth;
         confess "unknown modifier $mod";
     };
-    $expr =~ /^--/ and do {
-      $expr =~ s/^--//;
-      return $expr;
-    };
-    my ($what, @args) = split /\s+/, $expr;
+    return $expr if $expr =~ s/^--//;
+
+    my ($what, @args) = split ' ', $expr;
     defined $what or return;
 
     my (@path)   = split /\//, $what;
@@ -417,16 +415,6 @@ sub node2txt {
     }
     return $node->{_elem};
 }
-
-sub trim {
-    my $string = shift;
-    defined $string or return $string;
-    $string =~ s/[\n\r]/ /g;
-    $string =~ s/^\s+//;
-    $string =~ s/\s+$//;
-    return $string;
-}
-
 
 sub tag2node {
     my ($elem, $ns) = @_;
