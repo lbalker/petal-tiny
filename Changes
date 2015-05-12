@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.14      2015-05-12 15:51:56+02:00 Europe/Copenhagen
         - Lots and lots of optimizations, much faster now.
           Given a large benchmark, Devel::NYTProf reports:
                 1.13  "Executed 2158858 statements in 3.19s"
