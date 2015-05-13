@@ -1,6 +1,8 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
+
+1.16      2015-05-13 15:32:32+02:00 Europe/Copenhagen
         - Release without nytprof files...
 1.15      2015-05-13 15:27:50+02:00 Europe/Copenhagen
         - Fixed issue with recognizing single-character tags, e.g. "<p>".
