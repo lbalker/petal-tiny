@@ -683,7 +683,7 @@ tal:attributes always overrides the content of an attribute, but
 occasionally you want to concatenate the new string to the existing
 string. Prefixing the attribute name with '+' allows you do to this:
 
- <div class="foo " tal:attribute="+class bar"/>
+ <div class="foo " tal:attributes="+class bar"/>
 
 outputs
 
