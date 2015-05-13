@@ -73,7 +73,6 @@ sub xml2nodes {
     my ($self, $xml) = @_;
 
     my @flat = ( $xml =~ /$XML_SPE/og );
-
     my $top = { _kids => [], _ns => $DEFAULT_NS };
     my @nest = ( $top );
     for my $tag (@flat) {
@@ -81,8 +80,13 @@ sub xml2nodes {
 
         if ($node->{_close}) {
             my $open = pop @nest;
-            confess "unbalanced close-tag '</$node->{_tag}>'"                  if $open == $top;
-            confess "wrong close-tag '</$node->{_tag}>' for '<$open->{_tag}>'" if lc($node->{_tag}) ne lc($open->{_tag});
+            confess "Too many close-tags! Last </$node->{_tag}>." if $open == $top;
+            if (lc($node->{_tag}) ne lc($open->{_tag})) {
+                my $in = "";
+                $in .= $nest[$_]{_elem} for 1..$#nest;
+                $in .= $open->{_elem};
+                confess "Wrong close-tag '</$node->{_tag}>' following '$in'";
+            }
         }
         else {
             push @{ $nest[-1]{_kids} }, $node;
@@ -415,9 +419,9 @@ sub node2txt {
 sub tag2node {
     my ($elem, $ns) = @_;
 
-    if ($elem =~ m,^<(/?)([A-Za-z0-9][A-Za-z0-9_:-]+).*?(/?)>$,) {
-        my ($has_close, $tag, $has_self_close) = ($1,$2,$3);
-
+    if (my ($has_close,     $tag) = $elem =~ m, \A < ( /? ) ( [A-Za-z0-9] [A-Za-z0-9_:-]* ) ,x and
+        my ($has_self_close     ) = $elem =~ m, ( /? ) > \z ,x)
+    {
         return { _tag => $tag, _close => 1 } if $has_close; # don't waste any time on </...> nodes, they're just for book-keeping
 
         my %node          = extract_attributes($elem);

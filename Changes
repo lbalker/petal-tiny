@@ -1,7 +1,9 @@
 Revision history for Perl extension Petal::Tiny
 
 {{$NEXT}}
-
+        - Fixed issue with recognizing single-character tags, e.g. "<p>".
+        - Fixed issue with matching multiline tags, e.g. "<foo\n>".
+        - Better error message when reporting on close tags not matching start tags.
 1.14      2015-05-12 15:51:56+02:00 Europe/Copenhagen
         - Lots and lots of optimizations, much faster now.
           Given a large benchmark, Devel::NYTProf reports:
